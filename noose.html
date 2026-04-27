@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MDT N.O.O.S.E. - Dispatch System</title>
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body class="app-body">
+    <div id="header-placeholder"></div>
+    <div class="container mdt-container">
+      <div class="header-top">
+        <div class="title-section">
+          <h3>N.O.O.S.E. — GESTION DES DÉPLOIEMENTS</h3>
+          <h1>MDT <span>Dispatch</span></h1>
+          <p>
+            Patrouilles actives :
+            <strong id="active-count" style="color: var(--accent-orange)"
+              >0</strong
+            >
+            • Alerte :
+            <strong id="global-security" style="color: var(--accent-gold)"
+              >DEFCON 5</strong
+            >
+          </p>
+        </div>
+      </div>
+
+      <div class="main-layout">
+        <div class="grid-section" id="patrol-grid"></div>
+
+        <div class="sidebar-section">
+          <div class="panel-box">
+            <div class="panel-title">DÉPLOYER PATROUILLE</div>
+
+            <div class="form-group">
+              <label>Assigner Agents</label>
+              <div
+                id="selected-agents-container"
+                class="tags-container"
+                style="margin-bottom: 0.8rem"
+              ></div>
+              <input
+                type="text"
+                id="agent-search"
+                class="form-control"
+                placeholder="Matricule ou nom..."
+                autocomplete="off"
+              />
+              <div id="search-results" class="search-results"></div>
+            </div>
+
+            <div
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem"
+            >
+              <div class="form-group">
+                <label>Fréq. Radio</label>
+                <input
+                  type="number"
+                  id="radio-freq"
+                  class="form-control"
+                  value="65"
+                />
+              </div>
+              <div class="form-group">
+                <label>Sécurité</label>
+                <select id="security-level" class="form-control">
+                  <option value="Renforcé 1">Renforcé 1</option>
+                  <option value="Renforcé 2">Renforcé 2</option>
+                  <option value="Renforcé 3">Renforcé 3</option>
+                  <option value="DEFCON 5" selected>DEFCON 5</option>
+                  <option value="DEFCON 4">DEFCON 4</option>
+                  <option value="DEFCON 3">DEFCON 3</option>
+                  <option value="DEFCON 2">DEFCON 2</option>
+                  <option value="DEFCON 1">DEFCON 1</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn-submit" onclick="createPatrol()">
+              CRÉER LA PATROUILLE
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="history-section">
+        <div class="panel-title">ARCHIVES RÉCENTES</div>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Effectifs</th>
+              <th>Création</th>
+              <th>Clôture</th>
+              <th>Intervention</th>
+              <th>Rapport</th>
+            </tr>
+          </thead>
+          <tbody id="history-log"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="edit-modal" class="modal">
+      <div class="modal-content" style="width: 400px">
+        <div class="panel-title">
+          MODIFIER <span id="edit-modal-title-type"></span>
+          <span
+            id="edit-unit-display"
+            style="color: var(--accent-orange); margin-left: 5px"
+          ></span>
+        </div>
+
+        <div id="edit-status-group" class="form-group" style="display: none">
+          <label>Nouveau Statut</label>
+          <select id="edit-status" class="form-control">
+            <option value="Disponible">Disponible</option>
+            <option value="Intervention">Intervention</option>
+            <option value="Procédure">Procédure</option>
+            <option value="Indisponible">Indisponible</option>
+          </select>
+        </div>
+
+        <div id="edit-radio-group" class="form-group" style="display: none">
+          <label>Nouvelle Fréq. Radio (MHz)</label>
+          <input type="number" id="edit-radio" class="form-control" />
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem">
+          <button class="btn-submit" onclick="saveEdit()">SAUVEGARDER</button>
+          <button
+            class="btn-danger"
+            style="margin-top: 0; padding: 1rem"
+            onclick="closeEditModal()"
+          >
+            ANNULER
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="close-modal" class="modal">
+      <div class="modal-content">
+        <div class="panel-title">CLÔTURE DE PATROUILLE</div>
+        <div class="form-group">
+          <label>Intervention effectuée ?</label>
+          <select id="intervention-confirm" class="form-control">
+            <option value="Non">Non</option>
+            <option value="Oui">Oui</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Rapport d'intervention</label>
+          <textarea
+            id="patrol-report"
+            class="form-control"
+            rows="5"
+            placeholder="Saisir les détails de la patrouille..."
+          ></textarea>
+        </div>
+        <div style="display: flex; gap: 1rem">
+          <button class="btn-submit" onclick="archivePatrol()">Terminer</button>
+          <button
+            class="btn-danger"
+            style="margin-top: 0; padding: 1rem"
+            onclick="closeModal()"
+          >
+            ANNULER
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="specialty-modal" class="modal">
+      <div class="modal-content" style="width: 400px">
+        <div class="panel-title">
+          ASSIGNER SPÉCIALITÉ
+          <span
+            id="spec-agent-name"
+            style="color: var(--accent-orange); margin-left: 5px"
+          ></span>
+        </div>
+        <div class="form-group">
+          <label>Spécialité</label>
+          <select id="spec-select" class="form-control">
+            <option value="">Aucune</option>
+            <option value="EOD">EOD</option>
+            <option value="Breacher">Breacher</option>
+          </select>
+        </div>
+        <div style="display: flex; gap: 1rem">
+          <button class="btn-submit" onclick="saveSpecialty()">
+            APPLIQUER
+          </button>
+          <button
+            class="btn-danger"
+            style="margin-top: 0; padding: 1rem"
+            onclick="closeSpecialtyModal()"
+          >
+            ANNULER
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="footer-placeholder"></div>
+
+    <script>
+      const grades = {
+        Elem: { class: "element", weight: 1 },
+        Oper: { class: "operator", weight: 2 },
+        TL: { class: "tl", weight: 3 },
+        SL: { class: "sl", weight: 4 },
+        Lieu: { class: "ltn", weight: 5 },
+        Sup: { class: "sup", weight: 6 },
+        Cap: { class: "cap", weight: 7 },
+      };
+
+      const roster = [
+        { id: 1, name: "LIGHT CROW", matricule: "050", grade: grades.Cap },
+        { id: 2, name: "LYAM PARKS", matricule: "332", grade: grades.Cap },
+        { id: 3, name: "DUKE CALLAGAN", matricule: "400", grade: grades.Cap },
+        {
+          id: 4,
+          name: "TOM JANUSKY-REACHER",
+          matricule: "647",
+          grade: grades.Cap,
+        },
+        { id: 5, name: "HOLLOW", matricule: "019", grade: grades.Sup },
+        { id: 6, name: "PRICE", matricule: "034", grade: grades.Sup },
+        { id: 7, name: "YŌKAI", matricule: "431", grade: grades.Sup },
+        { id: 8, name: "BENGAL", matricule: "402", grade: grades.Lieu },
+        { id: 9, name: "TEST", matricule: "000", grade: grades.SL },
+        { id: 10, name: "WOLF", matricule: "035", grade: grades.TL },
+        { id: 11, name: "THORN", matricule: "041", grade: grades.TL },
+        { id: 12, name: "STORM", matricule: "178", grade: grades.TL },
+        { id: 13, name: "NOVA", matricule: "295", grade: grades.TL },
+        { id: 14, name: "TOKYO", matricule: "305", grade: grades.TL },
+        { id: 15, name: "ICE", matricule: "343", grade: grades.TL },
+        { id: 16, name: "ECHO", matricule: "804", grade: grades.TL },
+        { id: 17, name: "HYPNOZZ", matricule: "807", grade: grades.TL },
+        { id: 18, name: "SNAKE", matricule: "070", grade: grades.Oper },
+        { id: 19, name: "SIMBA", matricule: "110", grade: grades.Oper },
+        { id: 20, name: "ONYX", matricule: "143", grade: grades.Oper },
+        { id: 21, name: "KAIDO", matricule: "145", grade: grades.Oper },
+        { id: 22, name: "GING", matricule: "179", grade: grades.Oper },
+        { id: 23, name: "SCAR", matricule: "201", grade: grades.Oper },
+        { id: 24, name: "ARÈS", matricule: "407", grade: grades.Oper },
+        { id: 25, name: "ZANE", matricule: "422", grade: grades.Oper },
+        { id: 26, name: "FOX", matricule: "429", grade: grades.Oper },
+        { id: 27, name: "ASH", matricule: "450", grade: grades.Oper },
+        { id: 28, name: "FALKO", matricule: "499", grade: grades.Oper },
+        { id: 29, name: "MAV", matricule: "520", grade: grades.Oper },
+        { id: 30, name: "KRONOS", matricule: "039", grade: grades.Elem },
+        { id: 31, name: "GRIM", matricule: "058", grade: grades.Elem },
+        { id: 32, name: "KURO", matricule: "150", grade: grades.Elem },
+        { id: 33, name: "ZENO", matricule: "180", grade: grades.Elem },
+        { id: 34, name: "VIPER", matricule: "211", grade: grades.Elem },
+        { id: 35, name: "SHADOW", matricule: "250", grade: grades.Elem },
+        { id: 36, name: "HOPE", matricule: "278", grade: grades.Elem },
+        { id: 37, name: "ALI", matricule: "314", grade: grades.Elem },
+        { id: 38, name: "FLYN", matricule: "344", grade: grades.Elem },
+        { id: 39, name: "RAVEN", matricule: "800", grade: grades.Elem },
+        { id: 40, name: "ATLAS", matricule: "803", grade: grades.Elem },
+        { id: 41, name: "ALBA", matricule: "812", grade: grades.Elem },
+        { id: 42, name: "ARGOS", matricule: "820", grade: grades.Elem },
+      ];
+
+      let activePatrols = [];
+      let archive = [];
+      let currentClosingId = null;
+      let currentEditId = null;
+      let selectedAgents = [];
+      let patrolCounter = 1;
+      let currentSpecPatrolId = null;
+      let currentSpecAgentId = null;
+      let currentEditType = null;
+
+      const sep = `<span style="position: relative; top: -1px; opacity: 0.5; margin: 0 4px;">|</span>`;
+
+      const searchInput = document.getElementById("agent-search");
+      const searchResults = document.getElementById("search-results");
+      const selectedContainer = document.getElementById(
+        "selected-agents-container",
+      );
+
+      searchInput.addEventListener("input", function () {
+        const query = this.value.toLowerCase();
+        searchResults.innerHTML = "";
+
+        if (query.length === 0) {
+          searchResults.style.display = "none";
+          return;
+        }
+
+        let filtered = roster.filter(
+          (agent) =>
+            (agent.name.toLowerCase().includes(query) ||
+              agent.matricule.includes(query)) &&
+            !selectedAgents.find((sa) => sa.id === agent.id) &&
+            !activePatrols.some((patrol) =>
+              patrol.agents.some((a) => a.id === agent.id),
+            ),
+        );
+
+        if (filtered.length > 0) {
+          filtered.sort((a, b) => {
+            if (b.grade.weight !== a.grade.weight) {
+              return b.grade.weight - a.grade.weight;
+            }
+            return a.name.localeCompare(b.name);
+          });
+
+          searchResults.style.display = "block";
+          filtered.forEach((agent) => {
+            const div = document.createElement("div");
+            div.className = "search-item";
+            div.innerHTML = `<span class="tag ${agent.grade.class}">${agent.matricule} | ${agent.name}</span>`;
+            div.onclick = () => addAgent(agent);
+            searchResults.appendChild(div);
+          });
+        } else {
+          searchResults.style.display = "none";
+        }
+      });
+
+      searchInput.addEventListener("keydown", function (e) {
+        if (e.key === "Tab") {
+          if (
+            searchResults.style.display === "block" &&
+            searchResults.firstElementChild
+          ) {
+            e.preventDefault();
+            searchResults.firstElementChild.click();
+          }
+        }
+      });
+
+      function addAgent(agent) {
+        selectedAgents.push(agent);
+        searchInput.value = "";
+        searchResults.style.display = "none";
+        renderSelectedAgents();
+      }
+
+      function removeAgent(id) {
+        selectedAgents = selectedAgents.filter((a) => a.id !== id);
+        renderSelectedAgents();
+      }
+
+      function renderSelectedAgents() {
+        selectedContainer.innerHTML = "";
+        selectedAgents.forEach((agent) => {
+          const tag = document.createElement("div");
+          tag.className = `tag ${agent.grade.class}`;
+          tag.innerHTML = `${agent.matricule} | ${agent.name} <span class="tag-remove" onclick="removeAgent(${agent.id})">&times;</span>`;
+          selectedContainer.appendChild(tag);
+        });
+      }
+
+      function createPatrol() {
+        if (selectedAgents.length === 0) return;
+
+        const patrolAgents = selectedAgents.map((a) => {
+          let defaultSpec = null;
+          if (parseInt(a.matricule) >= 800) defaultSpec = "Medic";
+          return { ...a, specialty: defaultSpec };
+        });
+
+        const supervisor = determineSupervisor(patrolAgents);
+        const now = new Date();
+        const dateStr =
+          now.toLocaleDateString("fr-FR") +
+          " - " +
+          now.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+
+        const newPatrol = {
+          id: patrolCounter++,
+          date: dateStr,
+          agents: patrolAgents,
+          supervisor: supervisor,
+          radio: document.getElementById("radio-freq").value,
+          security: document.getElementById("security-level").value,
+          status: "Disponible",
+        };
+
+        activePatrols.push(newPatrol);
+        selectedAgents = [];
+        renderSelectedAgents();
+        updateUI();
+      }
+
+      function determineSupervisor(agents) {
+        let maxWeight = Math.max(...agents.map((a) => a.grade.weight));
+        let candidates = agents.filter((a) => a.grade.weight === maxWeight);
+        return candidates[0];
+      }
+
+      function updateUI() {
+        const grid = document.getElementById("patrol-grid");
+        grid.innerHTML = "";
+
+        if (activePatrols.length === 0) {
+          grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📡</div>
+        <div style="font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem; letter-spacing: 1px;">AUCUNE PATROUILLE DÉPLOYÉE</div>
+        <div style="font-size: 0.85rem;">Utilisez le panneau latéral pour créer une nouvelle patrouille.</div>
+      </div>
+    `;
+        } else {
+          activePatrols.forEach((patrol) => {
+            const card = document.createElement("div");
+            card.className = "unit-card";
+
+            let agentsHtml = patrol.agents
+              .map((a) => {
+                const isSup = a.id === patrol.supervisor.id;
+                const supIcon = isSup
+                  ? '<span style="margin-right:4px; opacity:0.8;">★</span>'
+                  : "";
+
+                let specHtml = "";
+                if (a.specialty === "Medic")
+                  specHtml = '<span class="spec-badge spec-medic">Medic</span>';
+                else if (a.specialty === "EOD")
+                  specHtml = '<span class="spec-badge spec-eod">EOD</span>';
+                else if (a.specialty === "Breacher")
+                  specHtml =
+                    '<span class="spec-badge spec-breacher">Breacher</span>';
+                return `<div class="tag ${a.grade.class} agent-tag-clickable" onclick="openSpecialtyModal(${patrol.id}, ${a.id})" title="Modifier la spécialité">${supIcon}${a.matricule} | ${a.name} ${specHtml}</div>`;
+              })
+              .join("");
+
+            let statusColor = "#10b981";
+            if (patrol.status === "Intervention") statusColor = "#8b3fe0";
+            if (patrol.status === "Procédure") statusColor = "#f59e0b";
+            if (patrol.status === "Indisponible") statusColor = "#ef4444";
+
+            let supSpecHtml = "";
+            if (patrol.supervisor.specialty === "Medic")
+              supSpecHtml = '<span class="spec-badge spec-medic">Medic</span>';
+            else if (patrol.supervisor.specialty === "EOD")
+              supSpecHtml = '<span class="spec-badge spec-eod">EOD</span>';
+            else if (patrol.supervisor.specialty === "Breacher")
+              supSpecHtml =
+                '<span class="spec-badge spec-breacher">Breacher</span>';
+            card.innerHTML = `
+            <div class="unit-header">
+                <div>
+                    <span class="unit-name">
+                        <img src="img/logo.png" class="unit-card-logo" alt="logo">
+                        PATROUILLE N.O.O.S.E.
+                        <img src="img/logo.png" class="unit-card-logo" alt="logo">
+                    </span>
+                    <span class="dash" style="margin-left: 8px;">${patrol.date}</span>
+                </div>
+            </div>
+            <div>
+                <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.6rem; letter-spacing: 1px;">Superviseur</div>
+                <div class="tag ${patrol.supervisor.grade.class} agent-tag-clickable" onclick="openSpecialtyModal(${patrol.id}, ${patrol.supervisor.id})" title="Modifier la spécialité">
+                    <span style="margin-right:4px; opacity:0.8;">★</span>${patrol.supervisor.matricule} ${sep} ${patrol.supervisor.name} ${supSpecHtml}
+                </div>
+            </div>
+            <div>
+                <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.6rem; letter-spacing: 1px;">Effectifs</div>
+                <div class="tags-container">
+                    ${agentsHtml}
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem; align-items: center; margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <div class="editable-field" onclick="openEditField(${patrol.id}, 'radio')" title="Modifier la fréquence">
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Radio:</span>
+                    <strong style="color: var(--text-main); font-size: 0.85rem;">${patrol.radio} MHz</strong>
+                </div>
+                <div class="editable-field" style="margin-left: auto;" onclick="openEditField(${patrol.id}, 'status')" title="Modifier le statut">
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Statut:</span>
+                    <strong style="color: ${statusColor}; font-size: 0.85rem;">${patrol.status}</strong>
+                </div>
+            </div>
+            <button class="btn-danger" style="margin-top: 1rem;" onclick="openCloseModal(${patrol.id})">TERMINER PATROUILLE</button>
+        `;
+            grid.appendChild(card);
+          });
+        }
+
+        document.getElementById("active-count").textContent =
+          activePatrols.length;
+        if (activePatrols.length > 0) {
+          document.getElementById("global-security").textContent =
+            activePatrols[activePatrols.length - 1].security;
+        } else {
+          document.getElementById("global-security").textContent = "DEFCON 5";
+        }
+      }
+
+      function openEditField(id, type) {
+        currentEditId = id;
+        currentEditType = type; // 'radio' ou 'status'
+        const patrol = activePatrols.find((p) => p.id === id);
+        if (!patrol) return;
+
+        document.getElementById("edit-unit-display").textContent =
+          `[UNITÉ ${String(id).padStart(2, "0")}]`;
+
+        if (type === "status") {
+          document.getElementById("edit-modal-title-type").textContent =
+            "STATUT";
+          document.getElementById("edit-status-group").style.display = "block";
+          document.getElementById("edit-radio-group").style.display = "none";
+          document.getElementById("edit-status").value = patrol.status;
+        } else if (type === "radio") {
+          document.getElementById("edit-modal-title-type").textContent =
+            "RADIO";
+          document.getElementById("edit-status-group").style.display = "none";
+          document.getElementById("edit-radio-group").style.display = "block";
+          document.getElementById("edit-radio").value = patrol.radio;
+        }
+
+        document.getElementById("edit-modal").style.display = "flex";
+      }
+
+      function closeEditModal() {
+        document.getElementById("edit-modal").style.display = "none";
+        currentEditId = null;
+        currentEditType = null;
+      }
+
+      function saveEdit() {
+        const patrol = activePatrols.find((p) => p.id === currentEditId);
+        if (patrol) {
+          if (currentEditType === "status") {
+            patrol.status = document.getElementById("edit-status").value;
+          } else if (currentEditType === "radio") {
+            patrol.radio = document.getElementById("edit-radio").value;
+          }
+          updateUI();
+        }
+        closeEditModal();
+      }
+
+      function openCloseModal(id) {
+        currentClosingId = id;
+        document.getElementById("close-modal").style.display = "flex";
+      }
+
+      function closeModal() {
+        document.getElementById("close-modal").style.display = "none";
+        document.getElementById("patrol-report").value = "";
+      }
+
+      function archivePatrol() {
+        const report = document.getElementById("patrol-report").value;
+        if (!report) return alert("Rapport obligatoire");
+
+        const index = activePatrols.findIndex((p) => p.id === currentClosingId);
+        const patrol = activePatrols[index];
+        const now = new Date();
+        const endDateStr =
+          now.toLocaleDateString("fr-FR") +
+          " - " +
+          now.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+
+        const entry = {
+          ...patrol,
+          endDate: endDateStr,
+          report: report,
+          intervention: document.getElementById("intervention-confirm").value,
+        };
+
+        archive.unshift(entry);
+        activePatrols.splice(index, 1);
+
+        updateHistoryUI();
+        updateUI();
+        closeModal();
+      }
+
+      function updateHistoryUI() {
+        const log = document.getElementById("history-log");
+        log.innerHTML = "";
+
+        if (archive.length === 0) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+      <td colspan="6" class="empty-state-table">
+        Aucune archive récente dans la base de données.
+      </td>
+    `;
+          log.appendChild(tr);
+          return;
+        }
+
+        archive.slice(0, 10).forEach((item) => {
+          const tr = document.createElement("tr");
+
+          let agentsHtml = item.agents
+            .map((a) => {
+              const isSup = a.id === item.supervisor.id;
+              const supIcon = isSup
+                ? '<span style="margin-right:4px; opacity:0.8;">★</span>'
+                : "";
+
+              let specHtml = "";
+              if (a.specialty === "Medic")
+                specHtml = '<span class="spec-badge spec-medic">Medic</span>';
+              else if (a.specialty === "EOD")
+                specHtml = '<span class="spec-badge spec-eod">EOD</span>';
+              else if (a.specialty === "Breacher")
+                specHtml =
+                  '<span class="spec-badge spec-breacher">Breacher</span>';
+              return `<div class="tag ${a.grade.class}">${supIcon}${a.matricule} | ${a.name} ${specHtml}</div>`;
+            })
+            .join("");
+
+          let interventionColor =
+            item.intervention === "Oui" ? "#10b981" : "#ef4444";
+
+          tr.innerHTML = `
+
+      <td><div class="tags-container" style="gap: 4px;">${agentsHtml}</div></td>
+      <td style="color: var(--text-muted); font-size: 0.85rem;">${item.date}</td>
+      <td style="color: var(--text-muted); font-size: 0.85rem;">${item.endDate}</td>
+      <td><strong style="color: ${interventionColor};">${item.intervention}</strong></td>
+      <td style="font-size: 0.85rem; color: var(--text-muted); max-width: 300px;">"${item.report}"</td>
+    `;
+          log.appendChild(tr);
+        });
+      }
+
+      function openSpecialtyModal(patrolId, agentId) {
+        currentSpecPatrolId = patrolId;
+        currentSpecAgentId = agentId;
+
+        const patrol = activePatrols.find((p) => p.id === patrolId);
+        const agent = patrol.agents.find((a) => a.id === agentId);
+
+        document.getElementById("spec-agent-name").textContent =
+          `${agent.matricule} | ${agent.name}`;
+        document.getElementById("spec-select").value = agent.specialty || "";
+
+        document.getElementById("specialty-modal").style.display = "flex";
+      }
+
+      function closeSpecialtyModal() {
+        document.getElementById("specialty-modal").style.display = "none";
+        currentSpecPatrolId = null;
+        currentSpecAgentId = null;
+      }
+
+      function saveSpecialty() {
+        const patrol = activePatrols.find((p) => p.id === currentSpecPatrolId);
+        if (patrol) {
+          const agent = patrol.agents.find((a) => a.id === currentSpecAgentId);
+          if (agent) {
+            agent.specialty = document.getElementById("spec-select").value;
+            if (patrol.supervisor.id === agent.id) {
+              patrol.supervisor.specialty = agent.specialty;
+            }
+          }
+          updateUI();
+        }
+        closeSpecialtyModal();
+      }
+
+      document.addEventListener("click", function (e) {
+        if (e.target !== searchInput && e.target !== searchResults) {
+          searchResults.style.display = "none";
+        }
+      });
+
+      fetch("header.html")
+        .then((response) => response.text())
+        .then((data) => {
+          document.getElementById("header-placeholder").innerHTML = data;
+          const currentPath = window.location.pathname.split("/").pop();
+          document.querySelectorAll(".nav-item").forEach((link) => {
+            if (
+              link.getAttribute("href") === currentPath ||
+              (currentPath === "" && link.getAttribute("href") === "noose.html")
+            ) {
+              link.classList.add("active");
+            }
+          });
+        });
+
+      fetch("footer.html")
+        .then((response) => response.text())
+        .then((data) => {
+          document.getElementById("footer-placeholder").innerHTML = data;
+        });
+
+      updateUI();
+      updateHistoryUI();
+    </script>
+  </body>
+</html>
