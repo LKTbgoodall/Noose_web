@@ -172,16 +172,15 @@
 
     <script>
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // Fonction test 1
       async function testDb() {
         const { data, error } = await supabase.from("agents").select("*");
-        console.log("Données reçues :", data);
+        console.log("Données reçues (Agents) :", data);
       }
-      testDb();
-    </script>
-
-    <script>
       async function testerLaBaseDeDonnees() {
-        console.log("⏳ Lancement du test Supabase...");
+        console.log("⏳ Lancement du test complet Supabase...");
+
         const { error: insertError } = await supabase.from("grades").insert([
           {
             nom: "Opérateur Test",
@@ -195,7 +194,9 @@
           console.error("❌ Erreur lors de l'envoi :", insertError.message);
           return;
         }
-        console.log("✅ 1. Insertion réussie ! Le grade a été envoyé.");
+
+        console.log("✅ 1. Insertion réussie !");
+
         const { data, error: selectError } = await supabase
           .from("grades")
           .select("*");
@@ -205,12 +206,12 @@
           return;
         }
 
-        console.log(
-          "✅ 2. Lecture réussie ! Voici ce qu'il y a dans ta base :",
-        );
+        console.log("✅ 2. Lecture réussie ! Contenu de la table 'grades' :");
         console.table(data);
       }
 
+      // Lancement des tests
+      testDb();
       testerLaBaseDeDonnees();
     </script>
 
