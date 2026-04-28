@@ -70,6 +70,7 @@
       </div>
     </div>
 
+    <!-- MODAL EDITION -->
     <div id="edit-cell-modal" class="modal">
       <div class="modal-content" style="width: 480px">
         <div class="panel-title">
@@ -167,66 +168,20 @@
     <div id="footer-placeholder"></div>
 
     <script src="config.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-      // 1. Initialisation avec un nom différent pour éviter le conflit
+      // ═══════════════════════════════════════════════
+      //  SUPABASE CLIENT
+      // ═══════════════════════════════════════════════
       const supabaseClient = window.supabase.createClient(
         SUPABASE_URL,
         SUPABASE_KEY,
       );
 
-      // 2. Fonction de test corrigée
-      async function testDb() {
-        const { data, error } = await supabaseClient.from("agents").select("*");
-        if (error) {
-          console.error("❌ Erreur testDb :", error.message);
-        } else {
-          console.log("✅ Données reçues (Agents) :", data);
-        }
-      }
-
-      async function testerLaBaseDeDonnees() {
-        console.log("⏳ Lancement du test complet Supabase...");
-
-        const { error: insertError } = await supabaseClient
-          .from("grades")
-          .insert([
-            {
-              nom: "Opérateur Test",
-              diminutif: "Oper",
-              poids: 2,
-              classe_css: "operator",
-            },
-          ]);
-
-        if (insertError) {
-          console.error("❌ Erreur lors de l'envoi :", insertError.message);
-          return;
-        }
-
-        console.log("✅ 1. Insertion réussie !");
-
-        const { data, error: selectError } = await supabaseClient
-          .from("grades")
-          .select("*");
-
-        if (selectError) {
-          console.error("❌ Erreur lors de la lecture :", selectError.message);
-          return;
-        }
-
-        console.log("✅ 2. Lecture réussie ! Contenu de la table 'grades' :");
-        console.table(data);
-      }
-
-      // Lancement des tests
-      testDb();
-      testerLaBaseDeDonnees();
-    </script>
-
-    <script>
+      // ═══════════════════════════════════════════════
+      //  CONSTANTES
+      // ═══════════════════════════════════════════════
       const days = [
         "Lundi",
         "Mardi",
@@ -236,6 +191,7 @@
         "Samedi",
         "Dimanche",
       ];
+
       const hours = [
         "13h00 - 13h30",
         "13h30 - 14h00",
@@ -275,24 +231,159 @@
         "event-autre": "Autre",
       };
 
+      // ═══════════════════════════════════════════════
+      //  ÉTAT LOCAL
+      // ═══════════════════════════════════════════════
       let scheduleData = {};
       let currentEditDay = null;
       let currentEditHourIndex = null;
       let tempSelectedTypes = [];
 
-      days.forEach((d) => {
-        scheduleData[d] = [];
-        hours.forEach((h) => {
-          let isDispatch = h === "21h00 - 21h30";
-          scheduleData[d].push({
-            span: 1,
-            isCovered: false,
-            events: isDispatch
-              ? [{ type: "event-dispatch", text: "Dispatch" }]
-              : [],
+      // Initialise une grille vide
+      function initScheduleData() {
+        days.forEach((d) => {
+          scheduleData[d] = [];
+          hours.forEach(() => {
+            scheduleData[d].push({ span: 1, isCovered: false, events: [] });
           });
         });
-      });
+      }
+
+      // ═══════════════════════════════════════════════
+      //  CONVERSION HEURES ↔ INDICES
+      // ═══════════════════════════════════════════════
+
+      // "13h00" → "13:00:00" (format TIME pour Supabase)
+      function slotPartToTimeStr(part) {
+        return part.replace("h", ":") + ":00";
+      }
+
+      // index → heure début "13:00:00"
+      function indexToStartTimeStr(i) {
+        return slotPartToTimeStr(hours[i].split(" - ")[0]);
+      }
+
+      // index → heure fin "13:30:00"
+      function indexToEndTimeStr(i) {
+        return slotPartToTimeStr(hours[i].split(" - ")[1]);
+      }
+
+      // "13:00:00" → index dans hours (cherche par début de slot)
+      function startTimeStrToIndex(timeStr) {
+        const [h, m] = timeStr.split(":").map(Number);
+        const search = `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}`;
+        return hours.findIndex((slot) => slot.split(" - ")[0] === search);
+      }
+
+      // "13:30:00" → index dans hours (cherche par fin de slot)
+      function endTimeStrToIndex(timeStr) {
+        const [h, m] = timeStr.split(":").map(Number);
+        const search = `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}`;
+        return hours.findIndex((slot) => slot.split(" - ")[1] === search);
+      }
+
+      // ═══════════════════════════════════════════════
+      //  CHARGEMENT DEPUIS LA BASE DE DONNÉES
+      // ═══════════════════════════════════════════════
+
+      async function loadPlanning() {
+        const { data, error } = await supabaseClient
+          .from("planning_evenements")
+          .select("*")
+          .order("jour_semaine")
+          .order("heure_debut");
+
+        if (error) {
+          console.error("Erreur chargement planning :", error.message);
+          return;
+        }
+
+        // Regrouper par (jour, heure_debut, heure_fin) → une cellule peut avoir 2 événements
+        const groups = {};
+        data.forEach((evt) => {
+          const key = `${evt.jour_semaine}__${evt.heure_debut}__${evt.heure_fin}`;
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(evt);
+        });
+
+        Object.values(groups).forEach((evts) => {
+          const dayIndex = evts[0].jour_semaine;
+          const dayName = days[dayIndex];
+          if (!dayName) return;
+
+          const startIndex = startTimeStrToIndex(evts[0].heure_debut);
+          const endIndex = endTimeStrToIndex(evts[0].heure_fin);
+
+          if (startIndex === -1 || endIndex === -1) return;
+
+          const span = endIndex - startIndex + 1;
+          const events = evts.map((e) => ({
+            type: e.type_activite,
+            text: e.texte_activite,
+          }));
+
+          scheduleData[dayName][startIndex] = {
+            span: Math.max(1, span),
+            isCovered: false,
+            events: events,
+          };
+
+          for (let i = startIndex + 1; i <= endIndex; i++) {
+            if (i < scheduleData[dayName].length) {
+              scheduleData[dayName][i].isCovered = true;
+            }
+          }
+        });
+      }
+
+      // ═══════════════════════════════════════════════
+      //  SAUVEGARDE EN BASE DE DONNÉES
+      // ═══════════════════════════════════════════════
+
+      async function persistCell(dayIndex, startIndex, endIndex, events) {
+        // Récupérer les temps de début de la plage ANCIENNE pour nettoyage
+        const oldSpan = scheduleData[days[dayIndex]][startIndex].span;
+        const oldEndIndex = startIndex + oldSpan - 1;
+
+        // Construire la liste des heure_debut à supprimer (ancienne plage)
+        const oldStartTimes = [];
+        for (let i = startIndex; i <= oldEndIndex; i++) {
+          oldStartTimes.push(indexToStartTimeStr(i));
+        }
+
+        // Supprimer les anciens enregistrements
+        if (oldStartTimes.length > 0) {
+          await supabaseClient
+            .from("planning_evenements")
+            .delete()
+            .eq("jour_semaine", dayIndex)
+            .in("heure_debut", oldStartTimes);
+        }
+
+        // Insérer les nouveaux enregistrements si des événements existent
+        if (events.length > 0) {
+          const heureDebut = indexToStartTimeStr(startIndex);
+          const heureFin = indexToEndTimeStr(endIndex);
+
+          const rows = events.map((e) => ({
+            jour_semaine: dayIndex,
+            heure_debut: heureDebut,
+            heure_fin: heureFin,
+            type_activite: e.type,
+            texte_activite: e.text,
+          }));
+
+          const { error } = await supabaseClient
+            .from("planning_evenements")
+            .insert(rows);
+          if (error)
+            console.error("Erreur sauvegarde planning :", error.message);
+        }
+      }
+
+      // ═══════════════════════════════════════════════
+      //  RENDU DE LA TABLE
+      // ═══════════════════════════════════════════════
 
       function renderTable() {
         const tbody = document.getElementById("planning-body");
@@ -332,6 +423,10 @@
         });
       }
 
+      // ═══════════════════════════════════════════════
+      //  MODAL D'ÉDITION
+      // ═══════════════════════════════════════════════
+
       function openCellModal(day, index) {
         currentEditDay = day;
         currentEditHourIndex = index;
@@ -343,7 +438,7 @@
         const endSelect = document.getElementById("cell-end-time");
         endSelect.innerHTML = "";
         for (let i = index; i < hours.length; i++) {
-          let option = document.createElement("option");
+          const option = document.createElement("option");
           option.value = i;
           option.textContent = hours[i].split(" - ")[1];
           endSelect.appendChild(option);
@@ -387,10 +482,10 @@
           const div = document.createElement("div");
           div.className = "form-group dynamic-input-group";
           div.innerHTML = `
-                <label><div class="color-indicator ${item.type}"></div> Détails ${typeLabels[item.type]}</label>
-                <input type="text" class="form-control" value="${item.text}" 
-                       oninput="tempSelectedTypes[${index}].text = this.value" 
-                       placeholder="Saisir les détails...">`;
+            <label><div class="color-indicator ${item.type}"></div> Détails ${typeLabels[item.type]}</label>
+            <input type="text" class="form-control" value="${item.text}"
+                   oninput="tempSelectedTypes[${index}].text = this.value"
+                   placeholder="Saisir les détails...">`;
           container.appendChild(div);
         });
       }
@@ -399,7 +494,7 @@
         document.getElementById("edit-cell-modal").style.display = "none";
       }
 
-      function saveCell() {
+      async function saveCell() {
         for (let i = 0; i < tempSelectedTypes.length; i++) {
           if (tempSelectedTypes[i].text.trim() === "") {
             alert(
@@ -408,11 +503,18 @@
             return;
           }
         }
+
         const startIndex = currentEditHourIndex;
         const endIndex = parseInt(
           document.getElementById("cell-end-time").value,
         );
         const span = endIndex - startIndex + 1;
+        const dayIndex = days.indexOf(currentEditDay);
+
+        // Persister en DB (gère aussi la suppression de l'ancienne plage)
+        await persistCell(dayIndex, startIndex, endIndex, tempSelectedTypes);
+
+        // Mise à jour de l'état local
         for (let i = startIndex; i <= endIndex; i++) {
           scheduleData[currentEditDay][i] = {
             span: 1,
@@ -433,12 +535,21 @@
         closeCellModal();
       }
 
+      // ═══════════════════════════════════════════════
+      //  INITIALISATION
+      // ═══════════════════════════════════════════════
+
+      async function init() {
+        initScheduleData();
+        await loadPlanning();
+        renderTable();
+      }
+
       fetch("header.html")
-        .then((response) => response.text())
+        .then((r) => r.text())
         .then((data) => {
           document.getElementById("header-placeholder").innerHTML = data;
-          const navItems = document.querySelectorAll(".nav-item");
-          navItems.forEach((link) => {
+          document.querySelectorAll(".nav-item").forEach((link) => {
             if (link.getAttribute("href") === "planning.html") {
               link.classList.add("active");
             } else {
@@ -446,12 +557,14 @@
             }
           });
         });
+
       fetch("footer.html")
         .then((r) => r.text())
         .then((data) => {
           document.getElementById("footer-placeholder").innerHTML = data;
         });
-      renderTable();
+
+      init();
     </script>
   </body>
 </html>
