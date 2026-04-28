@@ -828,6 +828,31 @@
         }
       });
 
+      const realtimeChannel = supabaseClient
+        .channel("public:patrouilles")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "patrouilles" },
+          (payload) => {
+            refreshDataSilently();
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "patrouille_agents" },
+          (payload) => {
+            refreshDataSilently();
+          },
+        )
+        .subscribe();
+
+      async function refreshDataSilently() {
+        await loadActivePatrols();
+        await loadHistory();
+        updateUI();
+        updateHistoryUI();
+      }
+
       // ═══════════════════════════════════════════════
       //  INITIALISATION
       // ═══════════════════════════════════════════════

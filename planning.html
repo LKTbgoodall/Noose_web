@@ -510,11 +510,7 @@
         );
         const span = endIndex - startIndex + 1;
         const dayIndex = days.indexOf(currentEditDay);
-
-        // Persister en DB (gère aussi la suppression de l'ancienne plage)
         await persistCell(dayIndex, startIndex, endIndex, tempSelectedTypes);
-
-        // Mise à jour de l'état local
         for (let i = startIndex; i <= endIndex; i++) {
           scheduleData[currentEditDay][i] = {
             span: 1,
@@ -533,6 +529,20 @@
 
         renderTable();
         closeCellModal();
+      }
+      const realtimePlanning = supabaseClient
+        .channel("public:planning_evenements")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "planning_evenements" },
+          () => {
+            refreshPlanningSilently();
+          },
+        )
+        .subscribe();
+      async function refreshPlanningSilently() {
+        await loadPlanning();
+        renderTable();
       }
 
       // ═══════════════════════════════════════════════
