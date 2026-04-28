@@ -166,6 +166,19 @@
 
     <div id="footer-placeholder"></div>
 
+    <script src="config.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      async function testDb() {
+        const { data, error } = await supabase.from("agents").select("*");
+        console.log("Données reçues :", data);
+      }
+      testDb();
+    </script>
+
     <script>
       const days = [
         "Lundi",
