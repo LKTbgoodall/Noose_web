@@ -180,6 +180,41 @@
     </script>
 
     <script>
+      async function testerLaBaseDeDonnees() {
+        console.log("⏳ Lancement du test Supabase...");
+        const { error: insertError } = await supabase.from("grades").insert([
+          {
+            nom: "Opérateur Test",
+            diminutif: "Oper",
+            poids: 2,
+            classe_css: "operator",
+          },
+        ]);
+
+        if (insertError) {
+          console.error("❌ Erreur lors de l'envoi :", insertError.message);
+          return;
+        }
+        console.log("✅ 1. Insertion réussie ! Le grade a été envoyé.");
+        const { data, error: selectError } = await supabase
+          .from("grades")
+          .select("*");
+
+        if (selectError) {
+          console.error("❌ Erreur lors de la lecture :", selectError.message);
+          return;
+        }
+
+        console.log(
+          "✅ 2. Lecture réussie ! Voici ce qu'il y a dans ta base :",
+        );
+        console.table(data);
+      }
+
+      testerLaBaseDeDonnees();
+    </script>
+
+    <script>
       const days = [
         "Lundi",
         "Mardi",
