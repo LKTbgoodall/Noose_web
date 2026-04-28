@@ -265,12 +265,12 @@
           .from("patrouilles")
           .select(
             `
-            *,
-            patrouille_agents(
-              specialite_active,
-              agents(id, matricule, nom, specialite_defaut, grades(nom, diminutif, poids, classe_css))
-            )
-          `,
+      *,
+      patrouille_agents(
+        specialite_active,
+        agents(id, matricule, nom, specialite_defaut, grades(nom, diminutif, poids, classe_css))
+      )
+    `,
           )
           .is("date_cloture", null)
           .order("aujourd_hui", { ascending: true });
@@ -282,8 +282,9 @@
           );
           return;
         }
-
-        activePatrols = data.map((p) => dbPatrolToLocal(p));
+        activePatrols = data
+          .filter((p) => p.patrouille_agents && p.patrouille_agents.length > 0)
+          .map((p) => dbPatrolToLocal(p));
       }
 
       async function loadHistory() {

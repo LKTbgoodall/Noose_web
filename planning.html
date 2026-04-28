@@ -541,6 +541,7 @@
         )
         .subscribe();
       async function refreshPlanningSilently() {
+        initScheduleData();
         await loadPlanning();
         renderTable();
       }
