@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planning - N.O.O.S.E.</title>
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body class="app-body">
+    <div id="header-placeholder"></div>
+
+    <div class="container mdt-container">
+      <div class="header-top">
+        <div class="title-section">
+          <h3>N.O.O.S.E. — GESTION DES OPÉRATIONS</h3>
+          <h1>Planning <span>Hebdomadaire</span></h1>
+          <p>
+            Cliquez sur une case pour assigner jusqu'à 2 activités simultanées.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel-box" style="overflow-x: auto; padding: 0">
+        <table class="planning-table">
+          <thead>
+            <tr>
+              <th style="width: 80px">Heure</th>
+              <th>Lundi</th>
+              <th>Mardi</th>
+              <th>Mercredi</th>
+              <th>Jeudi</th>
+              <th>Vendredi</th>
+              <th>Samedi</th>
+              <th>Dimanche</th>
+            </tr>
+          </thead>
+          <tbody id="planning-body"></tbody>
+        </table>
+      </div>
+
+      <div class="planning-legend">
+        <div class="legend-badge">
+          <div class="legend-color" style="background: #a78bfa"></div>
+          Entrainement
+        </div>
+        <div class="legend-badge">
+          <div class="legend-color" style="background: #f97316"></div>
+          Patrouille N.O.O.S.E.
+        </div>
+        <div class="legend-badge">
+          <div class="legend-color" style="background: #eab308"></div>
+          Dispatch
+        </div>
+        <div class="legend-badge">
+          <div class="legend-color" style="background: #22c55e"></div>
+          Réunion
+        </div>
+        <div class="legend-badge">
+          <div class="legend-color" style="background: #0ea5e9"></div>
+          Formation
+        </div>
+        <div class="legend-badge">
+          <div class="legend-color" style="background: #ef4444"></div>
+          Opération
+        </div>
+        <div class="legend-badge">
+          <div class="legend-color" style="background: #9ca3af"></div>
+          Autre...
+        </div>
+      </div>
+    </div>
+
+    <div id="edit-cell-modal" class="modal">
+      <div class="modal-content" style="width: 480px">
+        <div class="panel-title">
+          ÉDITION DU CRÉNEAU
+          <span
+            id="modal-day-hour"
+            style="color: var(--accent-orange); margin-left: 5px"
+          ></span>
+        </div>
+
+        <div class="form-group">
+          <label>Heure de fin (Fusion)</label>
+          <select id="cell-end-time" class="form-control"></select>
+        </div>
+
+        <div class="form-group">
+          <label>Type(s) d'activité (Max 2)</label>
+          <div class="type-selector">
+            <div
+              class="type-btn event-entrainement"
+              data-type="event-entrainement"
+              onclick="toggleType('event-entrainement')"
+            >
+              Entrainement
+            </div>
+            <div
+              class="type-btn event-patrouille"
+              data-type="event-patrouille"
+              onclick="toggleType('event-patrouille')"
+            >
+              Patrouille
+            </div>
+            <div
+              class="type-btn event-dispatch"
+              data-type="event-dispatch"
+              onclick="toggleType('event-dispatch')"
+            >
+              Dispatch
+            </div>
+            <div
+              class="type-btn event-reunion"
+              data-type="event-reunion"
+              onclick="toggleType('event-reunion')"
+            >
+              Réunion
+            </div>
+            <div
+              class="type-btn event-formation"
+              data-type="event-formation"
+              onclick="toggleType('event-formation')"
+            >
+              Formation
+            </div>
+            <div
+              class="type-btn event-operation"
+              data-type="event-operation"
+              onclick="toggleType('event-operation')"
+            >
+              Opération
+            </div>
+            <div
+              class="type-btn event-autre"
+              data-type="event-autre"
+              onclick="toggleType('event-autre')"
+              style="grid-column: span 2"
+            >
+              Autre...
+            </div>
+          </div>
+        </div>
+
+        <div id="dynamic-inputs-container"></div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 2rem">
+          <button class="btn-submit" onclick="saveCell()">
+            SAUVEGARDER LE BLOC
+          </button>
+          <button
+            class="btn-danger"
+            style="
+              margin-top: 0;
+              padding: 1rem;
+              background: transparent;
+              border-color: var(--border-color);
+              color: var(--text-main);
+            "
+            onclick="closeCellModal()"
+          >
+            ANNULER
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <script>
+      const days = [
+        "Lundi",
+        "Mardi",
+        "Mercredi",
+        "Jeudi",
+        "Vendredi",
+        "Samedi",
+        "Dimanche",
+      ];
+      const hours = [
+        "13h00 - 13h30",
+        "13h30 - 14h00",
+        "14h00 - 14h30",
+        "14h30 - 15h00",
+        "15h00 - 15h30",
+        "15h30 - 16h00",
+        "16h00 - 16h30",
+        "16h30 - 17h00",
+        "17h00 - 17h30",
+        "17h30 - 18h00",
+        "18h00 - 18h30",
+        "18h30 - 19h00",
+        "19h00 - 19h30",
+        "19h30 - 20h00",
+        "20h00 - 20h30",
+        "20h30 - 21h00",
+        "21h00 - 21h30",
+        "21h30 - 22h00",
+        "22h00 - 22h30",
+        "22h30 - 23h00",
+        "23h00 - 23h30",
+        "23h30 - 00h00",
+        "00h00 - 00h30",
+        "00h30 - 01h00",
+        "01h00 - 01h30",
+        "01h30 - 02h00",
+      ];
+
+      const typeLabels = {
+        "event-entrainement": "Entrainement",
+        "event-patrouille": "Patrouille",
+        "event-dispatch": "Dispatch",
+        "event-reunion": "Réunion",
+        "event-formation": "Formation",
+        "event-operation": "Opération",
+        "event-autre": "Autre",
+      };
+
+      let scheduleData = {};
+      let currentEditDay = null;
+      let currentEditHourIndex = null;
+      let tempSelectedTypes = [];
+
+      days.forEach((d) => {
+        scheduleData[d] = [];
+        hours.forEach((h) => {
+          let isDispatch = h === "21h00 - 21h30";
+          scheduleData[d].push({
+            span: 1,
+            isCovered: false,
+            events: isDispatch
+              ? [{ type: "event-dispatch", text: "Dispatch" }]
+              : [],
+          });
+        });
+      });
+
+      function renderTable() {
+        const tbody = document.getElementById("planning-body");
+        tbody.innerHTML = "";
+
+        hours.forEach((hour, index) => {
+          const tr = document.createElement("tr");
+          const tdHour = document.createElement("td");
+          tdHour.className = "time-col";
+          tdHour.innerHTML = hour.replace(" - ", "<br>");
+          tr.appendChild(tdHour);
+
+          days.forEach((day) => {
+            const cellData = scheduleData[day][index];
+            if (!cellData.isCovered) {
+              const td = document.createElement("td");
+              if (cellData.span > 1) td.rowSpan = cellData.span;
+
+              if (cellData.events.length === 2) {
+                td.innerHTML = `
+                  <div class="split-cell" onclick="openCellModal('${day}', ${index})">
+                    <div class="planning-cell ${cellData.events[0].type}">${cellData.events[0].text}</div>
+                    <div class="planning-cell ${cellData.events[1].type}">${cellData.events[1].text}</div>
+                  </div>`;
+              } else if (cellData.events.length === 1) {
+                td.innerHTML = `
+                  <div class="planning-cell ${cellData.events[0].type}" onclick="openCellModal('${day}', ${index})">
+                    ${cellData.events[0].text}
+                  </div>`;
+              } else {
+                td.innerHTML = `<div class="planning-cell event-vide" onclick="openCellModal('${day}', ${index})"></div>`;
+              }
+              tr.appendChild(td);
+            }
+          });
+          tbody.appendChild(tr);
+        });
+      }
+
+      function openCellModal(day, index) {
+        currentEditDay = day;
+        currentEditHourIndex = index;
+        const cell = scheduleData[day][index];
+
+        document.getElementById("modal-day-hour").textContent =
+          `${day.toUpperCase()} [${hours[index].split(" - ")[0]}]`;
+
+        const endSelect = document.getElementById("cell-end-time");
+        endSelect.innerHTML = "";
+        for (let i = index; i < hours.length; i++) {
+          let option = document.createElement("option");
+          option.value = i;
+          option.textContent = hours[i].split(" - ")[1];
+          endSelect.appendChild(option);
+        }
+        endSelect.value = index + cell.span - 1;
+
+        tempSelectedTypes = JSON.parse(JSON.stringify(cell.events));
+        updateModalUI();
+        document.getElementById("edit-cell-modal").style.display = "flex";
+      }
+
+      function toggleType(type) {
+        const idx = tempSelectedTypes.findIndex((t) => t.type === type);
+        if (idx !== -1) {
+          tempSelectedTypes.splice(idx, 1);
+        } else {
+          if (tempSelectedTypes.length >= 2) return;
+          let defaultText = "";
+          if (type === "event-dispatch") defaultText = "Dispatch";
+          if (type === "event-patrouille")
+            defaultText = "Patrouille N.O.O.S.E.";
+          tempSelectedTypes.push({ type: type, text: defaultText });
+        }
+        updateModalUI();
+      }
+
+      function updateModalUI() {
+        document.querySelectorAll(".type-btn").forEach((btn) => {
+          const type = btn.dataset.type;
+          btn.classList.remove("active", "disabled");
+          if (tempSelectedTypes.find((t) => t.type === type)) {
+            btn.classList.add("active");
+          } else if (tempSelectedTypes.length >= 2) {
+            btn.classList.add("disabled");
+          }
+        });
+
+        const container = document.getElementById("dynamic-inputs-container");
+        container.innerHTML = "";
+        tempSelectedTypes.forEach((item, index) => {
+          const div = document.createElement("div");
+          div.className = "form-group dynamic-input-group";
+          div.innerHTML = `
+                <label><div class="color-indicator ${item.type}"></div> Détails ${typeLabels[item.type]}</label>
+                <input type="text" class="form-control" value="${item.text}" 
+                       oninput="tempSelectedTypes[${index}].text = this.value" 
+                       placeholder="Saisir les détails...">`;
+          container.appendChild(div);
+        });
+      }
+
+      function closeCellModal() {
+        document.getElementById("edit-cell-modal").style.display = "none";
+      }
+
+      function saveCell() {
+        for (let i = 0; i < tempSelectedTypes.length; i++) {
+          if (tempSelectedTypes[i].text.trim() === "") {
+            alert(
+              "Erreur : Veuillez saisir les détails pour chaque activité sélectionnée !",
+            );
+            return;
+          }
+        }
+        const startIndex = currentEditHourIndex;
+        const endIndex = parseInt(
+          document.getElementById("cell-end-time").value,
+        );
+        const span = endIndex - startIndex + 1;
+        for (let i = startIndex; i <= endIndex; i++) {
+          scheduleData[currentEditDay][i] = {
+            span: 1,
+            isCovered: false,
+            events: [],
+          };
+        }
+        scheduleData[currentEditDay][startIndex] = {
+          span: span,
+          isCovered: false,
+          events: tempSelectedTypes,
+        };
+        for (let i = startIndex + 1; i <= endIndex; i++) {
+          scheduleData[currentEditDay][i].isCovered = true;
+        }
+
+        renderTable();
+        closeCellModal();
+      }
+
+      fetch("header.html")
+        .then((response) => response.text())
+        .then((data) => {
+          document.getElementById("header-placeholder").innerHTML = data;
+          const navItems = document.querySelectorAll(".nav-item");
+          navItems.forEach((link) => {
+            if (link.getAttribute("href") === "planning.html") {
+              link.classList.add("active");
+            } else {
+              link.classList.remove("active");
+            }
+          });
+        });
+      fetch("footer.html")
+        .then((r) => r.text())
+        .then((data) => {
+          document.getElementById("footer-placeholder").innerHTML = data;
+        });
+      renderTable();
+    </script>
+  </body>
+</html>
