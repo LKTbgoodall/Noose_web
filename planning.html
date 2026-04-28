@@ -171,24 +171,35 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      // 1. Initialisation avec un nom différent pour éviter le conflit
+      const supabaseClient = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY,
+      );
 
-      // Fonction test 1
+      // 2. Fonction de test corrigée
       async function testDb() {
-        const { data, error } = await supabase.from("agents").select("*");
-        console.log("Données reçues (Agents) :", data);
+        const { data, error } = await supabaseClient.from("agents").select("*");
+        if (error) {
+          console.error("❌ Erreur testDb :", error.message);
+        } else {
+          console.log("✅ Données reçues (Agents) :", data);
+        }
       }
+
       async function testerLaBaseDeDonnees() {
         console.log("⏳ Lancement du test complet Supabase...");
 
-        const { error: insertError } = await supabase.from("grades").insert([
-          {
-            nom: "Opérateur Test",
-            diminutif: "Oper",
-            poids: 2,
-            classe_css: "operator",
-          },
-        ]);
+        const { error: insertError } = await supabaseClient
+          .from("grades")
+          .insert([
+            {
+              nom: "Opérateur Test",
+              diminutif: "Oper",
+              poids: 2,
+              classe_css: "operator",
+            },
+          ]);
 
         if (insertError) {
           console.error("❌ Erreur lors de l'envoi :", insertError.message);
@@ -197,7 +208,7 @@
 
         console.log("✅ 1. Insertion réussie !");
 
-        const { data, error: selectError } = await supabase
+        const { data, error: selectError } = await supabaseClient
           .from("grades")
           .select("*");
 
