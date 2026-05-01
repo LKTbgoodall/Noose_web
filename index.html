@@ -396,7 +396,18 @@
 
         archive = data.map((p) => {
           const local = dbPatrolToLocal(p);
-          const endDate = p.date_cloture ? new Date(p.date_cloture) : null;
+
+          // Force l'heure en UTC pour que la conversion locale (+2h) se fasse
+          let clotureStr = p.date_cloture;
+          if (
+            clotureStr &&
+            !clotureStr.includes("Z") &&
+            !clotureStr.includes("+")
+          ) {
+            clotureStr += "Z";
+          }
+          const endDate = clotureStr ? new Date(clotureStr) : null;
+
           return {
             ...local,
             endDate: endDate
@@ -429,7 +440,13 @@
         const supervisor =
           agents.find((a) => a.id === p.superviseur_id) ||
           determineSupervisor(agents);
-        const startDate = p.aujourd_hui ? new Date(p.aujourd_hui) : new Date();
+
+        // Force l'heure en UTC pour la date de création
+        let dateStr = p.aujourd_hui;
+        if (dateStr && !dateStr.includes("Z") && !dateStr.includes("+")) {
+          dateStr += "Z";
+        }
+        const startDate = dateStr ? new Date(dateStr) : new Date();
 
         return {
           id: p.id,
@@ -638,13 +655,17 @@
         grid.innerHTML = "";
 
         if (activePatrols.length === 0) {
+          // On passe le conteneur en flex pour que le bloc vide prenne 100% de la hauteur
+          grid.style.display = "flex";
           grid.innerHTML = `
-            <div class="empty-state">
+            <div class="empty-state" style="flex: 1; width: 100%;">
               <div class="empty-state-icon">📡</div>
               <div style="font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem; letter-spacing: 1px;">AUCUNE PATROUILLE DÉPLOYÉE</div>
               <div style="font-size: 0.85rem;">Utilisez le panneau latéral pour créer une nouvelle patrouille.</div>
             </div>`;
         } else {
+          // On remet le conteneur en grille normale pour afficher les cartes correctement
+          grid.style.display = "grid";
           activePatrols.forEach((patrol) => {
             const card = document.createElement("div");
             card.className = "unit-card";
