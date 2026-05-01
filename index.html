@@ -51,6 +51,30 @@
             </div>
 
             <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+                margin-bottom: 1.2rem;
+              "
+            >
+              <div class="form-group" style="margin-bottom: 0">
+                <label>Secteur</label>
+                <select id="patrol-sector" class="form-control">
+                  <option value="Sud" selected>Sud</option>
+                  <option value="Sandy/Grapeseed">Sandy/Grapeseed</option>
+                  <option value="Paleto/RoxWood">Paleto/RoxWood</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0">
+                <label>Véhicule</label>
+                <select id="patrol-vehicle" class="form-control">
+                  <option value="">Chargement...</option>
+                </select>
+              </div>
+            </div>
+
+            <div
               style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem"
             >
               <div class="form-group">
@@ -97,10 +121,45 @@
           </thead>
           <tbody id="history-log"></tbody>
         </table>
+
+        <div
+          style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+          "
+        >
+          <button
+            id="btn-prev-page"
+            class="btn-submit"
+            style="width: auto; padding: 0.4rem 1rem; font-size: 0.75rem"
+            onclick="prevPage()"
+          >
+            PRÉCÉDENT
+          </button>
+          <span
+            style="
+              color: var(--text-muted);
+              font-size: 0.85rem;
+              font-weight: 600;
+            "
+            >PAGE <span id="current-page">1</span> /
+            <span id="total-pages">1</span></span
+          >
+          <button
+            id="btn-next-page"
+            class="btn-submit"
+            style="width: auto; padding: 0.4rem 1rem; font-size: 0.75rem"
+            onclick="nextPage()"
+          >
+            SUIVANT
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- MODAL EDITION -->
     <div id="edit-modal" class="modal">
       <div class="modal-content" style="width: 400px">
         <div class="panel-title">
@@ -110,6 +169,7 @@
             style="color: var(--accent-orange); margin-left: 5px"
           ></span>
         </div>
+
         <div id="edit-status-group" class="form-group" style="display: none">
           <label>Nouveau Statut</label>
           <select id="edit-status" class="form-control">
@@ -119,10 +179,26 @@
             <option value="Indisponible">Indisponible</option>
           </select>
         </div>
+
         <div id="edit-radio-group" class="form-group" style="display: none">
           <label>Nouvelle Fréq. Radio (MHz)</label>
           <input type="number" id="edit-radio" class="form-control" />
         </div>
+
+        <div id="edit-secteur-group" class="form-group" style="display: none">
+          <label>Nouveau Secteur</label>
+          <select id="edit-secteur" class="form-control">
+            <option value="Sud">Sud</option>
+            <option value="Sandy/Grapeseed">Sandy/Grapeseed</option>
+            <option value="Paleto/RoxWood">Paleto/RoxWood</option>
+          </select>
+        </div>
+
+        <div id="edit-vehicule-group" class="form-group" style="display: none">
+          <label>Nouveau Véhicule</label>
+          <select id="edit-vehicule" class="form-control"></select>
+        </div>
+
         <div style="display: flex; gap: 1rem; margin-top: 1.5rem">
           <button class="btn-submit" onclick="saveEdit()">SAUVEGARDER</button>
           <button
@@ -136,7 +212,6 @@
       </div>
     </div>
 
-    <!-- MODAL CLOTURE -->
     <div id="close-modal" class="modal">
       <div class="modal-content">
         <div class="panel-title">CLÔTURE DE PATROUILLE</div>
@@ -169,7 +244,6 @@
       </div>
     </div>
 
-    <!-- MODAL SPECIALITE -->
     <div id="specialty-modal" class="modal">
       <div class="modal-content" style="width: 400px">
         <div class="panel-title">
@@ -208,21 +282,15 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-      // ═══════════════════════════════════════════════
-      //  SUPABASE CLIENT
-      // ═══════════════════════════════════════════════
       const supabaseClient = window.supabase.createClient(
         SUPABASE_URL,
         SUPABASE_KEY,
       );
 
-      // ═══════════════════════════════════════════════
-      //  ÉTAT LOCAL
-      // ═══════════════════════════════════════════════
-      let roster = []; // agents chargés depuis la DB
-      let activePatrols = []; // patrouilles en cours (chargées + créées localement)
-      let archive = []; // historique chargé depuis la DB
-
+      let roster = [];
+      let activePatrols = [];
+      let archive = [];
+      let vehiclesList = [];
       let selectedAgents = [];
       let currentClosingId = null;
       let currentEditId = null;
@@ -230,22 +298,37 @@
       let currentSpecPatrolId = null;
       let currentSpecAgentId = null;
 
+      let currentPage = 1;
+      const itemsPerPage = 10;
+      let totalHistoryItems = 0;
+
       const sep = `<span style="position: relative; top: -1px; opacity: 0.5; margin: 0 4px;">|</span>`;
 
-      // ═══════════════════════════════════════════════
-      //  CHARGEMENT DEPUIS LA BASE DE DONNÉES
-      // ═══════════════════════════════════════════════
+      async function loadVehicles() {
+        const { data, error } = await supabaseClient
+          .from("vehicules")
+          .select("nom_modele")
+          .order("nom_modele");
+        if (error) return;
+
+        vehiclesList = data.map((v) => v.nom_modele);
+        const optionsHtml = vehiclesList
+          .map((v) => {
+            const isSelected = v === "Buffalo STX" ? "selected" : "";
+            return `<option value="${v}" ${isSelected}>${v}</option>`;
+          })
+          .join("");
+
+        document.getElementById("patrol-vehicle").innerHTML = optionsHtml;
+        document.getElementById("edit-vehicule").innerHTML = optionsHtml;
+      }
 
       async function loadRoster() {
         const { data, error } = await supabaseClient
           .from("agents")
           .select(`*, grades(*)`)
           .order("grade_id", { ascending: false });
-
-        if (error) {
-          console.error("Erreur chargement roster :", error.message);
-          return;
-        }
+        if (error) return;
 
         roster = data.map((a) => ({
           id: a.id,
@@ -265,29 +348,35 @@
           .from("patrouilles")
           .select(
             `
-      *,
-      patrouille_agents(
-        specialite_active,
-        agents(id, matricule, nom, specialite_defaut, grades(nom, diminutif, poids, classe_css))
-      )
-    `,
+            *,
+            patrouille_agents(
+              specialite_active,
+              agents(id, matricule, nom, specialite_defaut, grades(nom, diminutif, poids, classe_css))
+            )
+          `,
           )
           .is("date_cloture", null)
           .order("aujourd_hui", { ascending: true });
 
-        if (error) {
-          console.error(
-            "Erreur chargement patrouilles actives :",
-            error.message,
-          );
-          return;
-        }
+        if (error) return;
+
         activePatrols = data
           .filter((p) => p.patrouille_agents && p.patrouille_agents.length > 0)
           .map((p) => dbPatrolToLocal(p));
       }
 
       async function loadHistory() {
+        const { count, error: countError } = await supabaseClient
+          .from("patrouilles")
+          .select("*", { count: "exact", head: true })
+          .not("date_cloture", "is", null);
+
+        if (countError) return;
+        totalHistoryItems = count || 0;
+
+        const fromIndex = (currentPage - 1) * itemsPerPage;
+        const toIndex = fromIndex + itemsPerPage - 1;
+
         const { data, error } = await supabaseClient
           .from("patrouilles")
           .select(
@@ -301,12 +390,9 @@
           )
           .not("date_cloture", "is", null)
           .order("date_cloture", { ascending: false })
-          .limit(10);
+          .range(fromIndex, toIndex);
 
-        if (error) {
-          console.error("Erreur chargement historique :", error.message);
-          return;
-        }
+        if (error) return;
 
         archive = data.map((p) => {
           const local = dbPatrolToLocal(p);
@@ -327,7 +413,6 @@
         });
       }
 
-      // ── Transforme un enregistrement DB en objet local ──
       function dbPatrolToLocal(p) {
         const agents = (p.patrouille_agents || []).map((pa) => ({
           id: pa.agents.id,
@@ -359,13 +444,11 @@
           supervisor,
           radio: p.frequence_radio,
           security: p.niveau_securite,
+          secteur: p.secteur || "Sud",
+          vehicule: p.vehicule || "Non défini",
           status: p.statut,
         };
       }
-
-      // ═══════════════════════════════════════════════
-      //  RECHERCHE D'AGENTS
-      // ═══════════════════════════════════════════════
 
       const searchInput = document.getElementById("agent-search");
       const searchResults = document.getElementById("search-results");
@@ -446,10 +529,6 @@
         });
       }
 
-      // ═══════════════════════════════════════════════
-      //  CRÉATION DE PATROUILLE
-      // ═══════════════════════════════════════════════
-
       async function createPatrol() {
         if (selectedAgents.length === 0) return;
 
@@ -475,9 +554,7 @@
           if (busyError) throw busyError;
 
           if (busyAgents && busyAgents.length > 0) {
-            alert(
-              "Erreur : Un ou plusieurs agents sélectionnés viennent d'être assignés à une autre patrouille.",
-            );
+            alert("Erreur");
             selectedAgents = [];
             renderSelectedAgents();
             await loadActivePatrols();
@@ -500,6 +577,9 @@
               minute: "2-digit",
             });
 
+          const secteurVal = document.getElementById("patrol-sector").value;
+          const vehiculeVal = document.getElementById("patrol-vehicle").value;
+
           const { data: patrolData, error: patrolError } = await supabaseClient
             .from("patrouilles")
             .insert({
@@ -507,6 +587,8 @@
               frequence_radio:
                 parseInt(document.getElementById("radio-freq").value) || 65,
               niveau_securite: document.getElementById("security-level").value,
+              secteur: secteurVal,
+              vehicule: vehiculeVal,
               statut: "Disponible",
             })
             .select()
@@ -529,6 +611,8 @@
             supervisor: supervisor,
             radio: document.getElementById("radio-freq").value,
             security: document.getElementById("security-level").value,
+            secteur: secteurVal,
+            vehicule: vehiculeVal,
             status: "Disponible",
           });
 
@@ -536,7 +620,6 @@
           renderSelectedAgents();
           updateUI();
         } catch (err) {
-          console.error(err);
         } finally {
           submitBtn.disabled = false;
           submitBtn.textContent = originalText;
@@ -549,10 +632,6 @@
         const maxWeight = Math.max(...agents.map((a) => a.grade.weight));
         return agents.filter((a) => a.grade.weight === maxWeight)[0];
       }
-
-      // ═══════════════════════════════════════════════
-      //  RENDU DES PATROUILLES ACTIVES
-      // ═══════════════════════════════════════════════
 
       function updateUI() {
         const grid = document.getElementById("patrol-grid");
@@ -596,24 +675,38 @@
                 </span>
                 <span class="dash" style="margin-left: 0; font-size: 0.85rem;">${patrol.date}</span>
               </div>
+              
               <div>
                 <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.6rem; letter-spacing: 1px;">Superviseur</div>
                 <div class="tag ${patrol.supervisor.grade.class} agent-tag-clickable" onclick="openSpecialtyModal(${patrol.id}, ${patrol.supervisor.id})" title="Modifier la spécialité">
                   <span style="margin-right:4px; opacity:0.8;">★</span>${patrol.supervisor.matricule} ${sep} ${patrol.supervisor.name} ${specialtyBadge(patrol.supervisor.specialty)}
                 </div>
               </div>
+              
               <div>
                 <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.6rem; letter-spacing: 1px;">Effectifs</div>
                 <div class="tags-container">${agentsHtml}</div>
               </div>
-              <div style="display: flex; gap: 1rem; align-items: center; margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-                <div class="editable-field" onclick="openEditField(${patrol.id}, 'radio')" title="Modifier la fréquence">
-                  <span style="font-size: 0.8rem; color: var(--text-muted);">Radio:</span>
-                  <strong style="color: var(--text-main); font-size: 0.85rem;">${patrol.radio} MHz</strong>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <div class="editable-field" style="display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; padding: 0.6rem;" onclick="openEditField(${patrol.id}, 'secteur')" title="Modifier le secteur">
+                  <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Secteur</span>
+                  <strong style="color: var(--accent-gold); font-size: 0.85rem; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${patrol.secteur}</strong>
                 </div>
-                <div class="editable-field" style="margin-left: auto;" onclick="openEditField(${patrol.id}, 'status')" title="Modifier le statut">
-                  <span style="font-size: 0.8rem; color: var(--text-muted);">Statut:</span>
-                  <strong style="color: ${statusColor}; font-size: 0.85rem;">${patrol.status}</strong>
+
+                <div class="editable-field" style="display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; padding: 0.6rem;" onclick="openEditField(${patrol.id}, 'vehicule')" title="Modifier le véhicule">
+                  <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Véhicule</span>
+                  <strong style="color: #30a7c5; font-size: 0.85rem; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${patrol.vehicule}</strong>
+                </div>
+
+                <div class="editable-field" style="display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; padding: 0.6rem;" onclick="openEditField(${patrol.id}, 'radio')" title="Modifier la fréquence">
+                  <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Fréq. Radio</span>
+                  <strong style="color: var(--text-main); font-size: 0.85rem; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${patrol.radio} MHz</strong>
+                </div>
+
+                <div class="editable-field" style="display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; padding: 0.6rem;" onclick="openEditField(${patrol.id}, 'status')" title="Modifier le statut">
+                  <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Statut</span>
+                  <strong style="color: ${statusColor}; font-size: 0.85rem; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${patrol.status}</strong>
                 </div>
               </div>
               <button class="btn-danger" style="margin-top: 1rem;" onclick="openCloseModal(${patrol.id})">TERMINER PATROUILLE</button>`;
@@ -640,10 +733,6 @@
         return "";
       }
 
-      // ═══════════════════════════════════════════════
-      //  MODIFICATION STATUT / RADIO
-      // ═══════════════════════════════════════════════
-
       function openEditField(id, type) {
         currentEditId = id;
         currentEditType = type;
@@ -653,18 +742,32 @@
         document.getElementById("edit-unit-display").textContent =
           `[UNITÉ ${String(id).padStart(2, "0")}]`;
 
+        document.getElementById("edit-status-group").style.display = "none";
+        document.getElementById("edit-radio-group").style.display = "none";
+        document.getElementById("edit-secteur-group").style.display = "none";
+        document.getElementById("edit-vehicule-group").style.display = "none";
+
         if (type === "status") {
           document.getElementById("edit-modal-title-type").textContent =
             "STATUT";
           document.getElementById("edit-status-group").style.display = "block";
-          document.getElementById("edit-radio-group").style.display = "none";
           document.getElementById("edit-status").value = patrol.status;
-        } else {
+        } else if (type === "radio") {
           document.getElementById("edit-modal-title-type").textContent =
             "RADIO";
-          document.getElementById("edit-status-group").style.display = "none";
           document.getElementById("edit-radio-group").style.display = "block";
           document.getElementById("edit-radio").value = patrol.radio;
+        } else if (type === "secteur") {
+          document.getElementById("edit-modal-title-type").textContent =
+            "SECTEUR";
+          document.getElementById("edit-secteur-group").style.display = "block";
+          document.getElementById("edit-secteur").value = patrol.secteur;
+        } else if (type === "vehicule") {
+          document.getElementById("edit-modal-title-type").textContent =
+            "VÉHICULE";
+          document.getElementById("edit-vehicule-group").style.display =
+            "block";
+          document.getElementById("edit-vehicule").value = patrol.vehicule;
         }
 
         document.getElementById("edit-modal").style.display = "flex";
@@ -691,15 +794,23 @@
               .from("patrouilles")
               .update({ frequence_radio: parseInt(patrol.radio) })
               .eq("id", patrol.id);
+          } else if (currentEditType === "secteur") {
+            patrol.secteur = document.getElementById("edit-secteur").value;
+            await supabaseClient
+              .from("patrouilles")
+              .update({ secteur: patrol.secteur })
+              .eq("id", patrol.id);
+          } else if (currentEditType === "vehicule") {
+            patrol.vehicule = document.getElementById("edit-vehicule").value;
+            await supabaseClient
+              .from("patrouilles")
+              .update({ vehicule: patrol.vehicule })
+              .eq("id", patrol.id);
           }
           updateUI();
         }
         closeEditModal();
       }
-
-      // ═══════════════════════════════════════════════
-      //  CLÔTURE DE PATROUILLE
-      // ═══════════════════════════════════════════════
 
       function openCloseModal(id) {
         currentClosingId = id;
@@ -713,18 +824,11 @@
 
       async function archivePatrol() {
         const report = document.getElementById("patrol-report").value;
-        if (!report) return alert("Rapport obligatoire");
+        if (!report) return alert("Erreur");
 
         const index = activePatrols.findIndex((p) => p.id === currentClosingId);
         const patrol = activePatrols[index];
         const now = new Date();
-        const endDateStr =
-          now.toLocaleDateString("fr-FR") +
-          " - " +
-          now.toLocaleTimeString("fr-FR", {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
         const interventionValue = document.getElementById(
           "intervention-confirm",
         ).value;
@@ -739,38 +843,61 @@
           })
           .eq("id", currentClosingId);
 
-        if (error) {
-          console.error("Erreur archivage :", error.message);
-          return;
-        }
-
-        archive.unshift({
-          ...patrol,
-          endDate: endDateStr,
-          report: report,
-          intervention: interventionValue,
-        });
+        if (error) return;
 
         activePatrols.splice(index, 1);
-        updateHistoryUI();
-        updateUI();
+        currentPage = 1;
+        await refreshDataSilently();
         closeModal();
       }
 
-      // ═══════════════════════════════════════════════
-      //  HISTORIQUE
-      // ═══════════════════════════════════════════════
+      function prevPage() {
+        if (currentPage > 1) {
+          currentPage--;
+          refreshHistory();
+        }
+      }
+
+      function nextPage() {
+        const maxPage = Math.ceil(totalHistoryItems / itemsPerPage) || 1;
+        if (currentPage < maxPage) {
+          currentPage++;
+          refreshHistory();
+        }
+      }
+
+      async function refreshHistory() {
+        await loadHistory();
+        updateHistoryUI();
+      }
 
       function updateHistoryUI() {
         const log = document.getElementById("history-log");
         log.innerHTML = "";
+
+        const maxPage = Math.ceil(totalHistoryItems / itemsPerPage) || 1;
+        document.getElementById("current-page").textContent = currentPage;
+        document.getElementById("total-pages").textContent = maxPage;
+
+        document.getElementById("btn-prev-page").disabled = currentPage === 1;
+        document.getElementById("btn-prev-page").style.opacity =
+          currentPage === 1 ? "0.5" : "1";
+        document.getElementById("btn-prev-page").style.cursor =
+          currentPage === 1 ? "not-allowed" : "pointer";
+
+        document.getElementById("btn-next-page").disabled =
+          currentPage === maxPage;
+        document.getElementById("btn-next-page").style.opacity =
+          currentPage === maxPage ? "0.5" : "1";
+        document.getElementById("btn-next-page").style.cursor =
+          currentPage === maxPage ? "not-allowed" : "pointer";
 
         if (archive.length === 0) {
           log.innerHTML = `<tr><td colspan="5" class="empty-state-table">Aucune archive récente dans la base de données.</td></tr>`;
           return;
         }
 
-        archive.slice(0, 10).forEach((item) => {
+        archive.forEach((item) => {
           const tr = document.createElement("tr");
 
           const agentsHtml = item.agents
@@ -796,15 +923,18 @@
         });
       }
 
-      // ═══════════════════════════════════════════════
-      //  SPÉCIALITÉS
-      // ═══════════════════════════════════════════════
-
       function openSpecialtyModal(patrolId, agentId) {
-        currentSpecPatrolId = patrolId;
-        currentSpecAgentId = agentId;
         const patrol = activePatrols.find((p) => p.id === patrolId);
         const agent = patrol.agents.find((a) => a.id === agentId);
+
+        if (agent.specialite_defaut === "Medic") {
+          alert("Erreur");
+          return;
+        }
+
+        currentSpecPatrolId = patrolId;
+        currentSpecAgentId = agentId;
+
         document.getElementById("spec-agent-name").textContent =
           `${agent.matricule} | ${agent.name}`;
         document.getElementById("spec-select").value = agent.specialty || "";
@@ -839,9 +969,6 @@
         }
         closeSpecialtyModal();
       }
-      // ═══════════════════════════════════════════════
-      //  DIVERS
-      // ═══════════════════════════════════════════════
 
       document.addEventListener("click", function (e) {
         if (e.target !== searchInput && !searchResults.contains(e.target)) {
@@ -874,11 +1001,8 @@
         updateHistoryUI();
       }
 
-      // ═══════════════════════════════════════════════
-      //  INITIALISATION
-      // ═══════════════════════════════════════════════
-
       async function init() {
+        await loadVehicles();
         await loadRoster();
         await loadActivePatrols();
         await loadHistory();

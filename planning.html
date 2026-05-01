@@ -6,15 +6,11 @@
     <title>Planning - N.O.O.S.E.</title>
     <link rel="stylesheet" href="./css/style.css" />
     <style>
-      /* ═══════════════════════════════════════════════
-         CSS NO-ROWSPAN (Continuité et Pistes)
-         ═══════════════════════════════════════════════ */
       .planning-table td {
         padding: 0 !important;
         height: 40px;
         vertical-align: top;
       }
-
       .planning-cell {
         display: flex;
         align-items: center;
@@ -30,20 +26,16 @@
         padding: 0.2rem;
         box-sizing: border-box;
       }
-
       .split-cell {
         display: flex;
         width: 100%;
         height: 100%;
         gap: 2px;
       }
-
       .split-cell > div {
         flex: 1;
         width: 50%;
       }
-
-      /* Classes pour masquer les bordures et lier visuellement les blocs */
       .ev-start {
         border-bottom: none !important;
         border-bottom-left-radius: 0 !important;
@@ -53,7 +45,6 @@
         position: relative;
         z-index: 2;
       }
-
       .ev-mid {
         border-top: none !important;
         border-bottom: none !important;
@@ -64,7 +55,6 @@
         z-index: 2;
         color: transparent !important;
       }
-
       .ev-end {
         border-top: none !important;
         border-top-left-radius: 0 !important;
@@ -73,12 +63,10 @@
         z-index: 2;
         color: transparent !important;
       }
-
       .ev-single {
         position: relative;
         z-index: 2;
       }
-
       .event-vide {
         background: rgba(255, 255, 255, 0.02);
         border: 1px inset rgba(255, 255, 255, 0.01);
@@ -93,13 +81,23 @@
 
     <div class="container mdt-container">
       <div class="header-top">
-        <div class="title-section">
-          <h3>N.O.O.S.E. — GESTION DES OPÉRATIONS</h3>
-          <h1>Planning <span>Hebdomadaire</span></h1>
-          <p>
-            Cliquez sur une case ou une piste vide pour assigner jusqu'à 2
-            activités simultanées. Fin indépendante.
-          </p>
+        <div
+          class="title-section"
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            width: 100%;
+          "
+        >
+          <div>
+            <h3>N.O.O.S.E. — GESTION DES OPÉRATIONS</h3>
+            <h1>Planning <span>Hebdomadaire</span></h1>
+            <p>
+              Cliquez sur une case ou une piste vide pour assigner jusqu'à 2
+              activités simultanées. Fin indépendante.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -108,13 +106,13 @@
           <thead>
             <tr>
               <th style="width: 80px">Heure</th>
-              <th>Lundi</th>
-              <th>Mardi</th>
-              <th>Mercredi</th>
-              <th>Jeudi</th>
-              <th>Vendredi</th>
-              <th>Samedi</th>
-              <th>Dimanche</th>
+              <th id="th-day-0">Lundi</th>
+              <th id="th-day-1">Mardi</th>
+              <th id="th-day-2">Mercredi</th>
+              <th id="th-day-3">Jeudi</th>
+              <th id="th-day-4">Vendredi</th>
+              <th id="th-day-5">Samedi</th>
+              <th id="th-day-6">Dimanche</th>
             </tr>
           </thead>
           <tbody id="planning-body"></tbody>
@@ -153,7 +151,6 @@
       </div>
     </div>
 
-    <!-- MODAL EDITION -->
     <div id="edit-cell-modal" class="modal">
       <div class="modal-content" style="width: 480px">
         <div class="panel-title">
@@ -247,17 +244,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-      // ═══════════════════════════════════════════════
-      //  SUPABASE CLIENT
-      // ═══════════════════════════════════════════════
       const supabaseClient = window.supabase.createClient(
         SUPABASE_URL,
         SUPABASE_KEY,
       );
 
-      // ═══════════════════════════════════════════════
-      //  CONSTANTES
-      // ═══════════════════════════════════════════════
       const days = [
         "Lundi",
         "Mardi",
@@ -305,14 +296,62 @@
         "event-autre": "Autre",
       };
 
-      // ═══════════════════════════════════════════════
-      //  ÉTAT LOCAL
-      // ═══════════════════════════════════════════════
       let eventsData = [];
-      let scheduleData = {}; // structure : scheduleData[day] = { track0: [], track1: [] }
+      let scheduleData = {};
       let currentEditDay = null;
       let currentEditHourIndex = null;
       let tempSelectedTypes = [];
+
+      function updateHeaderDates() {
+        const now = new Date(
+          new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }),
+        );
+        const dayOfWeek = now.getDay();
+        const currentHour = now.getHours();
+
+        let daysToSubtract = 0;
+        if (dayOfWeek === 1 && currentHour < 3) daysToSubtract = 7;
+        else if (dayOfWeek === 0) daysToSubtract = 6;
+        else daysToSubtract = dayOfWeek - 1;
+
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - daysToSubtract);
+
+        for (let i = 0; i < 7; i++) {
+          const currentDate = new Date(monday);
+          currentDate.setDate(monday.getDate() + i);
+
+          const dayStr = String(currentDate.getDate()).padStart(2, "0");
+          const monthStr = String(currentDate.getMonth() + 1).padStart(2, "0");
+
+          const th = document.getElementById(`th-day-${i}`);
+          if (th) {
+            th.innerHTML = `${days[i]}<br><span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; letter-spacing: 0.5px;">${dayStr}/${monthStr}</span>`;
+          }
+        }
+      }
+
+      async function clearPlanning() {
+        await supabaseClient
+          .from("planning_evenements")
+          .delete()
+          .not("id", "is", null);
+        const defaultDispatches = [];
+        for (let i = 0; i < 7; i++) {
+          defaultDispatches.push({
+            jour_semaine: i,
+            heure_debut: "21:00:00",
+            heure_fin: "21:30:00",
+            type_activite: "event-dispatch",
+            texte_activite: "Dispatch",
+            lieu: "QG Vespucci",
+          });
+        }
+        await supabaseClient
+          .from("planning_evenements")
+          .insert(defaultDispatches);
+        refreshPlanningSilently();
+      }
 
       function slotPartToTimeStr(part) {
         return part.replace("h", ":") + ":00";
@@ -334,10 +373,6 @@
         return hours.findIndex((slot) => slot.split(" - ")[1] === search);
       }
 
-      // ═══════════════════════════════════════════════
-      //  CHARGEMENT ET LOGIQUE "TRACKS" FIXES
-      // ═══════════════════════════════════════════════
-
       async function loadPlanning() {
         const { data, error } = await supabaseClient
           .from("planning_evenements")
@@ -353,6 +388,7 @@
           end: endTimeStrToIndex(evt.heure_fin),
           type: evt.type_activite,
           text: evt.texte_activite,
+          lieu: evt.lieu || "",
         }));
 
         buildGrid();
@@ -367,7 +403,6 @@
           };
         });
 
-        // Tri pour s'assurer que les événements les plus longs / tôt prennent la priorité sur les pistes
         eventsData.sort((a, b) => {
           if (a.start !== b.start) return a.start - b.start;
           return b.end - b.start - (a.end - a.start);
@@ -377,7 +412,6 @@
           const dayName = days[evt.day];
           if (!dayName || evt.start === -1 || evt.end === -1) return;
 
-          // Essayer Piste 0
           let canFit0 = true;
           for (let i = evt.start; i <= evt.end; i++) {
             if (scheduleData[dayName].track0[i] !== null) {
@@ -390,7 +424,6 @@
             for (let i = evt.start; i <= evt.end; i++)
               scheduleData[dayName].track0[i] = evt;
           } else {
-            // Essayer Piste 1
             let canFit1 = true;
             for (let i = evt.start; i <= evt.end; i++) {
               if (scheduleData[dayName].track1[i] !== null) {
@@ -407,10 +440,6 @@
 
         renderTable();
       }
-
-      // ═══════════════════════════════════════════════
-      //  RENDU HTML NO-ROWSPAN
-      // ═══════════════════════════════════════════════
 
       function renderTable() {
         const tbody = document.getElementById("planning-body");
@@ -429,16 +458,12 @@
             const td = document.createElement("td");
 
             if (!t0 && !t1) {
-              // Aucun événement : case vide cliquable
               td.innerHTML = `<div class="planning-cell event-vide" onclick="openCellModal('${day}', ${index})"></div>`;
             } else if (t0 && !t1) {
-              // Uniquement Piste 0 : prend 100% de la place
               td.innerHTML = renderEventBlock(t0, index, day);
             } else if (!t0 && t1) {
-              // Uniquement Piste 1 : prend 100% de la place
               td.innerHTML = renderEventBlock(t1, index, day);
             } else {
-              // Les deux pistes sont occupées : split-cell 50/50
               let html0 = renderEventBlock(t0, index, day);
               let html1 = renderEventBlock(t1, index, day);
               td.innerHTML = `<div class="split-cell">${html0}${html1}</div>`;
@@ -458,12 +483,18 @@
         else classes.push("ev-mid");
 
         const textContent = currentIndex === evt.start ? evt.text : evt.text;
-        return `<div class="${classes.join(" ")}" title="${evt.text}" onclick="openCellModal('${day}', ${currentIndex})">${textContent}</div>`;
-      }
+        const lieuContent =
+          currentIndex === evt.start && evt.lieu
+            ? `<div style="font-size: 0.65rem; opacity: 0.8; margin-top: 2px;">📍 ${evt.lieu}</div>`
+            : "";
 
-      // ═══════════════════════════════════════════════
-      //  MODAL D'ÉDITION
-      // ═══════════════════════════════════════════════
+        return `<div class="${classes.join(" ")}" title="${evt.text}${evt.lieu ? " - " + evt.lieu : ""}" onclick="openCellModal('${day}', ${currentIndex})">
+            <div style="pointer-events: none; width: 100%;">
+                ${textContent}
+                ${lieuContent}
+            </div>
+        </div>`;
+      }
 
       function openCellModal(day, index) {
         currentEditDay = day;
@@ -488,15 +519,23 @@
           tempSelectedTypes.splice(idx, 1);
         } else {
           if (tempSelectedTypes.length >= 2) return;
+
           let defaultText = "";
-          if (type === "event-dispatch") defaultText = "Dispatch";
-          if (type === "event-patrouille")
+          let defaultLieu = "";
+
+          if (type === "event-dispatch") {
+            defaultText = "Dispatch";
+            defaultLieu = "QG Vespucci";
+          }
+          if (type === "event-patrouille") {
             defaultText = "Patrouille N.O.O.S.E.";
+          }
 
           tempSelectedTypes.push({
             id: null,
             type: type,
             text: defaultText,
+            lieu: defaultLieu,
             start: currentEditHourIndex,
             end: currentEditHourIndex,
           });
@@ -529,11 +568,14 @@
           div.className = "form-group dynamic-input-group";
           div.innerHTML = `
             <label><div class="color-indicator ${item.type}"></div> Configuration ${typeLabels[item.type]}</label>
-            <div style="display: flex; gap: 0.5rem;">
-              <input type="text" class="form-control" style="flex: 2;" value="${item.text}"
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <input type="text" class="form-control" style="flex: 2; min-width: 120px;" value="${item.text}"
                      oninput="tempSelectedTypes[${index}].text = this.value"
                      placeholder="Détails...">
-              <select class="form-control" style="flex: 1;" onchange="tempSelectedTypes[${index}].end = parseInt(this.value)">
+              <input type="text" class="form-control" style="flex: 2; min-width: 120px;" value="${item.lieu || ""}"
+                     oninput="tempSelectedTypes[${index}].lieu = this.value"
+                     placeholder="Lieu de RDV (Optionnel)">
+              <select class="form-control" style="flex: 1; min-width: 80px;" onchange="tempSelectedTypes[${index}].end = parseInt(this.value)">
                 ${optionsHtml}
               </select>
             </div>`;
@@ -545,30 +587,21 @@
         document.getElementById("edit-cell-modal").style.display = "none";
       }
 
-      // ═══════════════════════════════════════════════
-      //  SAUVEGARDE & MOTEUR ANTI-COLLISION
-      // ═══════════════════════════════════════════════
-
       async function saveCell() {
         for (let i = 0; i < tempSelectedTypes.length; i++) {
           if (tempSelectedTypes[i].text.trim() === "") {
-            alert(
-              "Erreur : Veuillez saisir les détails pour chaque activité sélectionnée !",
-            );
+            alert("Erreur de saisie");
             return;
           }
         }
 
         const dayIndex = days.indexOf(currentEditDay);
-
-        // --- 1. MOTEUR ANTI-COLLISION (Simulation) ---
         const editingIds = tempSelectedTypes
           .map((t) => t.id)
           .filter((id) => id !== null);
         let simTrack0 = [...scheduleData[currentEditDay].track0];
         let simTrack1 = [...scheduleData[currentEditDay].track1];
 
-        // Nettoyage de la simulation (on efface les events qu'on est en train d'éditer)
         for (let i = 0; i < hours.length; i++) {
           if (simTrack0[i] && editingIds.includes(simTrack0[i].id))
             simTrack0[i] = null;
@@ -576,7 +609,6 @@
             simTrack1[i] = null;
         }
 
-        // On teste le placement des nouveaux blocks modifiés
         for (const item of tempSelectedTypes) {
           let fit0 = true;
           for (let i = item.start; i <= item.end; i++) {
@@ -599,15 +631,12 @@
             if (fit1) {
               for (let i = item.start; i <= item.end; i++) simTrack1[i] = item;
             } else {
-              alert(
-                "ERREUR : Impossible de valider. La plage horaire sélectionnée chevauche un moment où 2 autres événements existent déjà !",
-              );
-              return; // Bloque la sauvegarde
+              alert("Erreur de superposition");
+              return;
             }
           }
         }
 
-        // --- 2. TRAITEMENT BASE DE DONNÉES ---
         const t0_orig =
           scheduleData[currentEditDay].track0[currentEditHourIndex];
         const t1_orig =
@@ -634,6 +663,7 @@
             heure_fin: indexToEndTimeStr(item.end),
             type_activite: item.type,
             texte_activite: item.text,
+            lieu: item.lieu || null,
           };
 
           if (item.id) {
@@ -651,10 +681,6 @@
         closeCellModal();
       }
 
-      // ═══════════════════════════════════════════════
-      //  INITIALISATION & REALTIME
-      // ═══════════════════════════════════════════════
-
       const realtimePlanning = supabaseClient
         .channel("public:planning_evenements")
         .on(
@@ -670,8 +696,50 @@
         await loadPlanning();
       }
 
+      async function checkGlobalReset() {
+        try {
+          const now = new Date(
+            new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }),
+          );
+          const day = now.getDay();
+          const hour = now.getHours();
+
+          let lastMonday3AM = new Date(now);
+          if (day === 1 && hour < 3) {
+            lastMonday3AM.setDate(now.getDate() - 7);
+          } else {
+            let daysToSubtract = day === 0 ? 6 : day - 1;
+            lastMonday3AM.setDate(now.getDate() - daysToSubtract);
+          }
+          lastMonday3AM.setHours(3, 0, 0, 0);
+
+          const { data, error } = await supabaseClient
+            .from("system_config")
+            .select("last_reset")
+            .eq("id", 1)
+            .single();
+
+          if (!error && data) {
+            const lastResetDB = new Date(data.last_reset);
+            if (lastResetDB < lastMonday3AM) {
+              await supabaseClient
+                .from("system_config")
+                .update({ last_reset: new Date().toISOString() })
+                .eq("id", 1);
+              await clearPlanning();
+            }
+          }
+        } catch (e) {}
+      }
+
       async function init() {
+        await checkGlobalReset();
         await loadPlanning();
+        updateHeaderDates();
+
+        setInterval(() => {
+          updateHeaderDates();
+        }, 60000);
       }
 
       fetch("header.html")
