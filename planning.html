@@ -5,6 +5,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Planning - N.O.O.S.E.</title>
     <link rel="stylesheet" href="./css/style.css" />
+    <style>
+      /* ═══════════════════════════════════════════════
+         CSS NO-ROWSPAN (Continuité et Pistes)
+         ═══════════════════════════════════════════════ */
+      .planning-table td {
+        padding: 0 !important;
+        height: 40px;
+        vertical-align: top;
+      }
+
+      .planning-cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        min-height: 40px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-align: center;
+        cursor: pointer;
+        transition: filter 0.2s;
+        padding: 0.2rem;
+        box-sizing: border-box;
+      }
+
+      .split-cell {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        gap: 2px;
+      }
+
+      .split-cell > div {
+        flex: 1;
+        width: 50%;
+      }
+
+      /* Classes pour masquer les bordures et lier visuellement les blocs */
+      .ev-start {
+        border-bottom: none !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        height: calc(100% + 1px) !important;
+        margin-bottom: -1px;
+        position: relative;
+        z-index: 2;
+      }
+
+      .ev-mid {
+        border-top: none !important;
+        border-bottom: none !important;
+        border-radius: 0 !important;
+        height: calc(100% + 1px) !important;
+        margin-bottom: -1px;
+        position: relative;
+        z-index: 2;
+        color: transparent !important;
+      }
+
+      .ev-end {
+        border-top: none !important;
+        border-top-left-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        position: relative;
+        z-index: 2;
+        color: transparent !important;
+      }
+
+      .ev-single {
+        position: relative;
+        z-index: 2;
+      }
+
+      .event-vide {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px inset rgba(255, 255, 255, 0.01);
+      }
+      .event-vide:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+    </style>
   </head>
   <body class="app-body">
     <div id="header-placeholder"></div>
@@ -15,7 +97,8 @@
           <h3>N.O.O.S.E. — GESTION DES OPÉRATIONS</h3>
           <h1>Planning <span>Hebdomadaire</span></h1>
           <p>
-            Cliquez sur une case pour assigner jusqu'à 2 activités simultanées.
+            Cliquez sur une case ou une piste vide pour assigner jusqu'à 2
+            activités simultanées. Fin indépendante.
           </p>
         </div>
       </div>
@@ -82,11 +165,6 @@
         </div>
 
         <div class="form-group">
-          <label>Heure de fin (Fusion)</label>
-          <select id="cell-end-time" class="form-control"></select>
-        </div>
-
-        <div class="form-group">
           <label>Type(s) d'activité (Max 2)</label>
           <div class="type-selector">
             <div
@@ -145,9 +223,7 @@
         <div id="dynamic-inputs-container"></div>
 
         <div style="display: flex; gap: 1rem; margin-top: 2rem">
-          <button class="btn-submit" onclick="saveCell()">
-            SAUVEGARDER LE BLOC
-          </button>
+          <button class="btn-submit" onclick="saveCell()">SAUVEGARDER</button>
           <button
             class="btn-danger"
             style="
@@ -191,7 +267,6 @@
         "Samedi",
         "Dimanche",
       ];
-
       const hours = [
         "13h00 - 13h30",
         "13h30 - 14h00",
@@ -220,7 +295,6 @@
         "01h00 - 01h30",
         "01h30 - 02h00",
       ];
-
       const typeLabels = {
         "event-entrainement": "Entrainement",
         "event-patrouille": "Patrouille",
@@ -234,48 +308,26 @@
       // ═══════════════════════════════════════════════
       //  ÉTAT LOCAL
       // ═══════════════════════════════════════════════
-      let scheduleData = {};
+      let eventsData = [];
+      let scheduleData = {}; // structure : scheduleData[day] = { track0: [], track1: [] }
       let currentEditDay = null;
       let currentEditHourIndex = null;
       let tempSelectedTypes = [];
 
-      // Initialise une grille vide
-      function initScheduleData() {
-        days.forEach((d) => {
-          scheduleData[d] = [];
-          hours.forEach(() => {
-            scheduleData[d].push({ span: 1, isCovered: false, events: [] });
-          });
-        });
-      }
-
-      // ═══════════════════════════════════════════════
-      //  CONVERSION HEURES ↔ INDICES
-      // ═══════════════════════════════════════════════
-
-      // "13h00" → "13:00:00" (format TIME pour Supabase)
       function slotPartToTimeStr(part) {
         return part.replace("h", ":") + ":00";
       }
-
-      // index → heure début "13:00:00"
       function indexToStartTimeStr(i) {
         return slotPartToTimeStr(hours[i].split(" - ")[0]);
       }
-
-      // index → heure fin "13:30:00"
       function indexToEndTimeStr(i) {
         return slotPartToTimeStr(hours[i].split(" - ")[1]);
       }
-
-      // "13:00:00" → index dans hours (cherche par début de slot)
       function startTimeStrToIndex(timeStr) {
         const [h, m] = timeStr.split(":").map(Number);
         const search = `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}`;
         return hours.findIndex((slot) => slot.split(" - ")[0] === search);
       }
-
-      // "13:30:00" → index dans hours (cherche par fin de slot)
       function endTimeStrToIndex(timeStr) {
         const [h, m] = timeStr.split(":").map(Number);
         const search = `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}`;
@@ -283,7 +335,7 @@
       }
 
       // ═══════════════════════════════════════════════
-      //  CHARGEMENT DEPUIS LA BASE DE DONNÉES
+      //  CHARGEMENT ET LOGIQUE "TRACKS" FIXES
       // ═══════════════════════════════════════════════
 
       async function loadPlanning() {
@@ -292,97 +344,72 @@
           .select("*")
           .order("jour_semaine")
           .order("heure_debut");
+        if (error) return;
 
-        if (error) {
-          console.error("Erreur chargement planning :", error.message);
-          return;
-        }
+        eventsData = data.map((evt) => ({
+          id: evt.id,
+          day: evt.jour_semaine,
+          start: startTimeStrToIndex(evt.heure_debut),
+          end: endTimeStrToIndex(evt.heure_fin),
+          type: evt.type_activite,
+          text: evt.texte_activite,
+        }));
 
-        // Regrouper par (jour, heure_debut, heure_fin) → une cellule peut avoir 2 événements
-        const groups = {};
-        data.forEach((evt) => {
-          const key = `${evt.jour_semaine}__${evt.heure_debut}__${evt.heure_fin}`;
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(evt);
+        buildGrid();
+      }
+
+      function buildGrid() {
+        scheduleData = {};
+        days.forEach((d) => {
+          scheduleData[d] = {
+            track0: Array(hours.length).fill(null),
+            track1: Array(hours.length).fill(null),
+          };
         });
 
-        Object.values(groups).forEach((evts) => {
-          const dayIndex = evts[0].jour_semaine;
-          const dayName = days[dayIndex];
-          if (!dayName) return;
+        // Tri pour s'assurer que les événements les plus longs / tôt prennent la priorité sur les pistes
+        eventsData.sort((a, b) => {
+          if (a.start !== b.start) return a.start - b.start;
+          return b.end - b.start - (a.end - a.start);
+        });
 
-          const startIndex = startTimeStrToIndex(evts[0].heure_debut);
-          const endIndex = endTimeStrToIndex(evts[0].heure_fin);
+        eventsData.forEach((evt) => {
+          const dayName = days[evt.day];
+          if (!dayName || evt.start === -1 || evt.end === -1) return;
 
-          if (startIndex === -1 || endIndex === -1) return;
+          // Essayer Piste 0
+          let canFit0 = true;
+          for (let i = evt.start; i <= evt.end; i++) {
+            if (scheduleData[dayName].track0[i] !== null) {
+              canFit0 = false;
+              break;
+            }
+          }
 
-          const span = endIndex - startIndex + 1;
-          const events = evts.map((e) => ({
-            type: e.type_activite,
-            text: e.texte_activite,
-          }));
-
-          scheduleData[dayName][startIndex] = {
-            span: Math.max(1, span),
-            isCovered: false,
-            events: events,
-          };
-
-          for (let i = startIndex + 1; i <= endIndex; i++) {
-            if (i < scheduleData[dayName].length) {
-              scheduleData[dayName][i].isCovered = true;
+          if (canFit0) {
+            for (let i = evt.start; i <= evt.end; i++)
+              scheduleData[dayName].track0[i] = evt;
+          } else {
+            // Essayer Piste 1
+            let canFit1 = true;
+            for (let i = evt.start; i <= evt.end; i++) {
+              if (scheduleData[dayName].track1[i] !== null) {
+                canFit1 = false;
+                break;
+              }
+            }
+            if (canFit1) {
+              for (let i = evt.start; i <= evt.end; i++)
+                scheduleData[dayName].track1[i] = evt;
             }
           }
         });
+
+        renderTable();
       }
 
       // ═══════════════════════════════════════════════
-      //  SAUVEGARDE EN BASE DE DONNÉES
-      // ═══════════════════════════════════════════════
-
-      async function persistCell(dayIndex, startIndex, endIndex, events) {
-        // Récupérer les temps de début de la plage ANCIENNE pour nettoyage
-        const oldSpan = scheduleData[days[dayIndex]][startIndex].span;
-        const oldEndIndex = startIndex + oldSpan - 1;
-
-        // Construire la liste des heure_debut à supprimer (ancienne plage)
-        const oldStartTimes = [];
-        for (let i = startIndex; i <= oldEndIndex; i++) {
-          oldStartTimes.push(indexToStartTimeStr(i));
-        }
-
-        // Supprimer les anciens enregistrements
-        if (oldStartTimes.length > 0) {
-          await supabaseClient
-            .from("planning_evenements")
-            .delete()
-            .eq("jour_semaine", dayIndex)
-            .in("heure_debut", oldStartTimes);
-        }
-
-        // Insérer les nouveaux enregistrements si des événements existent
-        if (events.length > 0) {
-          const heureDebut = indexToStartTimeStr(startIndex);
-          const heureFin = indexToEndTimeStr(endIndex);
-
-          const rows = events.map((e) => ({
-            jour_semaine: dayIndex,
-            heure_debut: heureDebut,
-            heure_fin: heureFin,
-            type_activite: e.type,
-            texte_activite: e.text,
-          }));
-
-          const { error } = await supabaseClient
-            .from("planning_evenements")
-            .insert(rows);
-          if (error)
-            console.error("Erreur sauvegarde planning :", error.message);
-        }
-      }
-
-      // ═══════════════════════════════════════════════
-      //  RENDU DE LA TABLE
+      //  RENDU HTML NO-ROWSPAN
       // ═══════════════════════════════════════════════
 
       function renderTable() {
@@ -397,30 +424,41 @@
           tr.appendChild(tdHour);
 
           days.forEach((day) => {
-            const cellData = scheduleData[day][index];
-            if (!cellData.isCovered) {
-              const td = document.createElement("td");
-              if (cellData.span > 1) td.rowSpan = cellData.span;
+            const t0 = scheduleData[day].track0[index];
+            const t1 = scheduleData[day].track1[index];
+            const td = document.createElement("td");
 
-              if (cellData.events.length === 2) {
-                td.innerHTML = `
-                  <div class="split-cell" onclick="openCellModal('${day}', ${index})">
-                    <div class="planning-cell ${cellData.events[0].type}">${cellData.events[0].text}</div>
-                    <div class="planning-cell ${cellData.events[1].type}">${cellData.events[1].text}</div>
-                  </div>`;
-              } else if (cellData.events.length === 1) {
-                td.innerHTML = `
-                  <div class="planning-cell ${cellData.events[0].type}" onclick="openCellModal('${day}', ${index})">
-                    ${cellData.events[0].text}
-                  </div>`;
-              } else {
-                td.innerHTML = `<div class="planning-cell event-vide" onclick="openCellModal('${day}', ${index})"></div>`;
-              }
-              tr.appendChild(td);
+            if (!t0 && !t1) {
+              // Aucun événement : case vide cliquable
+              td.innerHTML = `<div class="planning-cell event-vide" onclick="openCellModal('${day}', ${index})"></div>`;
+            } else if (t0 && !t1) {
+              // Uniquement Piste 0 : prend 100% de la place
+              td.innerHTML = renderEventBlock(t0, index, day);
+            } else if (!t0 && t1) {
+              // Uniquement Piste 1 : prend 100% de la place
+              td.innerHTML = renderEventBlock(t1, index, day);
+            } else {
+              // Les deux pistes sont occupées : split-cell 50/50
+              let html0 = renderEventBlock(t0, index, day);
+              let html1 = renderEventBlock(t1, index, day);
+              td.innerHTML = `<div class="split-cell">${html0}${html1}</div>`;
             }
+            tr.appendChild(td);
           });
           tbody.appendChild(tr);
         });
+      }
+
+      function renderEventBlock(evt, currentIndex, day) {
+        let classes = ["planning-cell", evt.type];
+        if (currentIndex === evt.start && currentIndex === evt.end)
+          classes.push("ev-single");
+        else if (currentIndex === evt.start) classes.push("ev-start");
+        else if (currentIndex === evt.end) classes.push("ev-end");
+        else classes.push("ev-mid");
+
+        const textContent = currentIndex === evt.start ? evt.text : evt.text;
+        return `<div class="${classes.join(" ")}" title="${evt.text}" onclick="openCellModal('${day}', ${currentIndex})">${textContent}</div>`;
       }
 
       // ═══════════════════════════════════════════════
@@ -430,28 +468,22 @@
       function openCellModal(day, index) {
         currentEditDay = day;
         currentEditHourIndex = index;
-        const cell = scheduleData[day][index];
 
-        document.getElementById("modal-day-hour").textContent =
-          `${day.toUpperCase()} [${hours[index].split(" - ")[0]}]`;
+        const t0 = scheduleData[day].track0[index];
+        const t1 = scheduleData[day].track1[index];
 
-        const endSelect = document.getElementById("cell-end-time");
-        endSelect.innerHTML = "";
-        for (let i = index; i < hours.length; i++) {
-          const option = document.createElement("option");
-          option.value = i;
-          option.textContent = hours[i].split(" - ")[1];
-          endSelect.appendChild(option);
-        }
-        endSelect.value = index + cell.span - 1;
+        let eventsInCell = [];
+        if (t0) eventsInCell.push(t0);
+        if (t1 && (!t0 || t1.id !== t0.id)) eventsInCell.push(t1);
 
-        tempSelectedTypes = JSON.parse(JSON.stringify(cell.events));
+        tempSelectedTypes = JSON.parse(JSON.stringify(eventsInCell));
         updateModalUI();
         document.getElementById("edit-cell-modal").style.display = "flex";
       }
 
       function toggleType(type) {
         const idx = tempSelectedTypes.findIndex((t) => t.type === type);
+
         if (idx !== -1) {
           tempSelectedTypes.splice(idx, 1);
         } else {
@@ -460,7 +492,14 @@
           if (type === "event-dispatch") defaultText = "Dispatch";
           if (type === "event-patrouille")
             defaultText = "Patrouille N.O.O.S.E.";
-          tempSelectedTypes.push({ type: type, text: defaultText });
+
+          tempSelectedTypes.push({
+            id: null,
+            type: type,
+            text: defaultText,
+            start: currentEditHourIndex,
+            end: currentEditHourIndex,
+          });
         }
         updateModalUI();
       }
@@ -478,14 +517,26 @@
 
         const container = document.getElementById("dynamic-inputs-container");
         container.innerHTML = "";
+
         tempSelectedTypes.forEach((item, index) => {
+          let optionsHtml = "";
+          for (let i = item.start; i < hours.length; i++) {
+            const selected = item.end === i ? "selected" : "";
+            optionsHtml += `<option value="${i}" ${selected}>${hours[i].split(" - ")[1]}</option>`;
+          }
+
           const div = document.createElement("div");
           div.className = "form-group dynamic-input-group";
           div.innerHTML = `
-            <label><div class="color-indicator ${item.type}"></div> Détails ${typeLabels[item.type]}</label>
-            <input type="text" class="form-control" value="${item.text}"
-                   oninput="tempSelectedTypes[${index}].text = this.value"
-                   placeholder="Saisir les détails...">`;
+            <label><div class="color-indicator ${item.type}"></div> Configuration ${typeLabels[item.type]}</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="text" class="form-control" style="flex: 2;" value="${item.text}"
+                     oninput="tempSelectedTypes[${index}].text = this.value"
+                     placeholder="Détails...">
+              <select class="form-control" style="flex: 1;" onchange="tempSelectedTypes[${index}].end = parseInt(this.value)">
+                ${optionsHtml}
+              </select>
+            </div>`;
           container.appendChild(div);
         });
       }
@@ -493,6 +544,10 @@
       function closeCellModal() {
         document.getElementById("edit-cell-modal").style.display = "none";
       }
+
+      // ═══════════════════════════════════════════════
+      //  SAUVEGARDE & MOTEUR ANTI-COLLISION
+      // ═══════════════════════════════════════════════
 
       async function saveCell() {
         for (let i = 0; i < tempSelectedTypes.length; i++) {
@@ -504,32 +559,102 @@
           }
         }
 
-        const startIndex = currentEditHourIndex;
-        const endIndex = parseInt(
-          document.getElementById("cell-end-time").value,
-        );
-        const span = endIndex - startIndex + 1;
         const dayIndex = days.indexOf(currentEditDay);
-        await persistCell(dayIndex, startIndex, endIndex, tempSelectedTypes);
-        for (let i = startIndex; i <= endIndex; i++) {
-          scheduleData[currentEditDay][i] = {
-            span: 1,
-            isCovered: false,
-            events: [],
-          };
-        }
-        scheduleData[currentEditDay][startIndex] = {
-          span: span,
-          isCovered: false,
-          events: tempSelectedTypes,
-        };
-        for (let i = startIndex + 1; i <= endIndex; i++) {
-          scheduleData[currentEditDay][i].isCovered = true;
+
+        // --- 1. MOTEUR ANTI-COLLISION (Simulation) ---
+        const editingIds = tempSelectedTypes
+          .map((t) => t.id)
+          .filter((id) => id !== null);
+        let simTrack0 = [...scheduleData[currentEditDay].track0];
+        let simTrack1 = [...scheduleData[currentEditDay].track1];
+
+        // Nettoyage de la simulation (on efface les events qu'on est en train d'éditer)
+        for (let i = 0; i < hours.length; i++) {
+          if (simTrack0[i] && editingIds.includes(simTrack0[i].id))
+            simTrack0[i] = null;
+          if (simTrack1[i] && editingIds.includes(simTrack1[i].id))
+            simTrack1[i] = null;
         }
 
-        renderTable();
+        // On teste le placement des nouveaux blocks modifiés
+        for (const item of tempSelectedTypes) {
+          let fit0 = true;
+          for (let i = item.start; i <= item.end; i++) {
+            if (simTrack0[i] !== null) {
+              fit0 = false;
+              break;
+            }
+          }
+
+          if (fit0) {
+            for (let i = item.start; i <= item.end; i++) simTrack0[i] = item;
+          } else {
+            let fit1 = true;
+            for (let i = item.start; i <= item.end; i++) {
+              if (simTrack1[i] !== null) {
+                fit1 = false;
+                break;
+              }
+            }
+            if (fit1) {
+              for (let i = item.start; i <= item.end; i++) simTrack1[i] = item;
+            } else {
+              alert(
+                "ERREUR : Impossible de valider. La plage horaire sélectionnée chevauche un moment où 2 autres événements existent déjà !",
+              );
+              return; // Bloque la sauvegarde
+            }
+          }
+        }
+
+        // --- 2. TRAITEMENT BASE DE DONNÉES ---
+        const t0_orig =
+          scheduleData[currentEditDay].track0[currentEditHourIndex];
+        const t1_orig =
+          scheduleData[currentEditDay].track1[currentEditHourIndex];
+        const originalEventsInCell = [];
+        if (t0_orig) originalEventsInCell.push(t0_orig);
+        if (t1_orig && (!t0_orig || t1_orig.id !== t0_orig.id))
+          originalEventsInCell.push(t1_orig);
+
+        const idsToDelete = originalEventsInCell
+          .filter((orig) => !tempSelectedTypes.some((t) => t.id === orig.id))
+          .map((e) => e.id);
+
+        if (idsToDelete.length > 0) {
+          await supabaseClient
+            .from("planning_evenements")
+            .delete()
+            .in("id", idsToDelete);
+        }
+
+        for (const item of tempSelectedTypes) {
+          const row = {
+            jour_semaine: dayIndex,
+            heure_fin: indexToEndTimeStr(item.end),
+            type_activite: item.type,
+            texte_activite: item.text,
+          };
+
+          if (item.id) {
+            await supabaseClient
+              .from("planning_evenements")
+              .update(row)
+              .eq("id", item.id);
+          } else {
+            row.heure_debut = indexToStartTimeStr(item.start);
+            await supabaseClient.from("planning_evenements").insert(row);
+          }
+        }
+
+        await refreshPlanningSilently();
         closeCellModal();
       }
+
+      // ═══════════════════════════════════════════════
+      //  INITIALISATION & REALTIME
+      // ═══════════════════════════════════════════════
+
       const realtimePlanning = supabaseClient
         .channel("public:planning_evenements")
         .on(
@@ -540,20 +665,13 @@
           },
         )
         .subscribe();
+
       async function refreshPlanningSilently() {
-        initScheduleData();
         await loadPlanning();
-        renderTable();
       }
 
-      // ═══════════════════════════════════════════════
-      //  INITIALISATION
-      // ═══════════════════════════════════════════════
-
       async function init() {
-        initScheduleData();
         await loadPlanning();
-        renderTable();
       }
 
       fetch("header.html")
@@ -561,11 +679,9 @@
         .then((data) => {
           document.getElementById("header-placeholder").innerHTML = data;
           document.querySelectorAll(".nav-item").forEach((link) => {
-            if (link.getAttribute("href") === "planning.html") {
+            if (link.getAttribute("href") === "planning.html")
               link.classList.add("active");
-            } else {
-              link.classList.remove("active");
-            }
+            else link.classList.remove("active");
           });
         });
 
